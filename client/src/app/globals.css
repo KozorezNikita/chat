@@ -1,0 +1,217 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================
+   Sunset gradient — OKLCH палітра
+   ============================================
+   - Default: dark (deep plum + magenta primary + peach accent)
+   - .dark клас застосовується через next-themes
+   - .light окремо для світлої теми (іноді хочеться)
+   ============================================ */
+
+:root {
+  /* === Light theme === */
+  --background: oklch(0.985 0.005 30);
+  --foreground: oklch(0.18 0.025 290);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.025 290);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.025 290);
+
+  --primary: oklch(0.62 0.22 350);
+  --primary-foreground: oklch(0.99 0.005 30);
+
+  --secondary: oklch(0.96 0.01 30);
+  --secondary-foreground: oklch(0.22 0.04 320);
+
+  --muted: oklch(0.96 0.01 30);
+  --muted-foreground: oklch(0.5 0.02 320);
+
+  --accent: oklch(0.74 0.18 55);
+  --accent-foreground: oklch(0.18 0.05 30);
+
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+
+  --border: oklch(0.92 0.008 320);
+  --input: oklch(0.92 0.008 320);
+  --ring: oklch(0.62 0.22 350);
+
+  --chart-1: oklch(0.62 0.22 350);
+  --chart-2: oklch(0.74 0.18 55);
+  --chart-3: oklch(0.55 0.18 290);
+  --chart-4: oklch(0.65 0.15 200);
+  --chart-5: oklch(0.7 0.13 130);
+
+  --sidebar: oklch(0.98 0.005 30);
+  --sidebar-foreground: oklch(0.18 0.025 290);
+  --sidebar-primary: oklch(0.62 0.22 350);
+  --sidebar-primary-foreground: oklch(0.99 0.005 30);
+  --sidebar-accent: oklch(0.95 0.015 30);
+  --sidebar-accent-foreground: oklch(0.22 0.04 320);
+  --sidebar-border: oklch(0.92 0.008 320);
+  --sidebar-ring: oklch(0.62 0.22 350);
+
+  --radius: 0.875rem;
+}
+
+.dark {
+  /* === Dark theme — основна для Sunset gradient === */
+  /* Deep plum фон з ледь помітним фіолетовим відтінком */
+  --background: oklch(0.16 0.025 305);
+  --foreground: oklch(0.95 0.012 30);
+
+  --card: oklch(0.19 0.027 305);
+  --card-foreground: oklch(0.95 0.012 30);
+
+  --popover: oklch(0.19 0.027 305);
+  --popover-foreground: oklch(0.95 0.012 30);
+
+  /* Hot pink primary — сатурований, енергійний */
+  --primary: oklch(0.7 0.22 350);
+  --primary-foreground: oklch(0.16 0.025 305);
+
+  --secondary: oklch(0.24 0.025 305);
+  --secondary-foreground: oklch(0.95 0.012 30);
+
+  --muted: oklch(0.24 0.025 305);
+  --muted-foreground: oklch(0.7 0.02 320);
+
+  /* Peach accent — теплий контрапункт до холодного фону */
+  --accent: oklch(0.78 0.16 55);
+  --accent-foreground: oklch(0.16 0.025 305);
+
+  --destructive: oklch(0.65 0.22 20);
+  --destructive-foreground: oklch(0.99 0 0);
+
+  --border: oklch(0.27 0.025 305);
+  --input: oklch(0.27 0.025 305);
+  --ring: oklch(0.7 0.22 350);
+
+  --chart-1: oklch(0.7 0.22 350);
+  --chart-2: oklch(0.78 0.16 55);
+  --chart-3: oklch(0.65 0.18 290);
+  --chart-4: oklch(0.7 0.15 200);
+  --chart-5: oklch(0.75 0.13 130);
+
+  --sidebar: oklch(0.18 0.026 305);
+  --sidebar-foreground: oklch(0.95 0.012 30);
+  --sidebar-primary: oklch(0.7 0.22 350);
+  --sidebar-primary-foreground: oklch(0.16 0.025 305);
+  --sidebar-accent: oklch(0.22 0.025 305);
+  --sidebar-accent-foreground: oklch(0.95 0.012 30);
+  --sidebar-border: oklch(0.27 0.025 305);
+  --sidebar-ring: oklch(0.7 0.22 350);
+}
+
+/* ============================================
+   Tailwind v4 @theme — мапимо CSS-змінні в утиліти
+   ============================================
+   Це робить класи на кшталт `bg-background`, `text-foreground`,
+   `border-border` доступними з утиліт Tailwind. */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 8px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "Cascadia Code", monospace;
+}
+
+/* ============================================
+   Base styles
+   ============================================ */
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* ============================================
+   Sunset gradient utility — для кнопок primary action
+   ============================================
+   Використовується ВИБІРКОВО на головних CTA, не повсюдно.
+   Звичайні Button-и shadcn використовують solid --primary. */
+
+@utility bg-sunset {
+  background-image: linear-gradient(
+    135deg,
+    var(--primary) 0%,
+    var(--accent) 100%
+  );
+}
+
+@utility bg-sunset-subtle {
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--primary) 15%, var(--background)) 0%,
+    color-mix(in oklch, var(--accent) 15%, var(--background)) 100%
+  );
+}
+
+/* Кастомний scrollbar — у темі Sunset gradient звичайні bar-и виглядають
+   некрасиво; робимо тонкі, у кольорах теми. */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--muted-foreground);
+    border-radius: 4px;
+    opacity: 0.4;
+  }
+}
