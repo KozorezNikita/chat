@@ -128,12 +128,10 @@ jobs:
         working-directory: server
         run: npm run typecheck
 
-      # Тести — поки що порожньо (немає жодного тесту), але pipeline готовий.
-      # `--passWithNoTests` щоб job не падав поки реальних тестів немає.
-      # Приберемо цей флаг в Ітерації 1 коли з'являться перші тести.
+      # Тести — повний integration suite через Vitest + реальний Postgres.
       - name: Tests
         working-directory: server
-        run: npm test -- --passWithNoTests
+        run: npm test
 
   # ============================================
   # CLIENT — typecheck + Next.js build

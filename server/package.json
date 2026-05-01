@@ -10,8 +10,10 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts",
-    "test": "jest",
-    "test:watch": "jest --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:db:up": "docker compose -f ../docker-compose.test.yml up -d",
+    "test:db:down": "docker compose -f ../docker-compose.test.yml down -v",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
@@ -41,12 +43,12 @@
     "@types/node": "^22.10.0",
     "@types/nodemailer": "^6.4.17",
     "@types/pg": "^8.11.10",
-    "@types/supertest": "^6.0.3",
+    "@types/supertest": "^6.0.2",
     "pino-pretty": "^11.3.0",
     "prisma": "^7.8.0",
-    "supertest": "^7.2.2",
+    "supertest": "^7.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.0",
-    "vitest": "^4.1.5"
+    "vitest": "^2.1.8"
   }
 }
