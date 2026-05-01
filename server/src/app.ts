@@ -1,12 +1,14 @@
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import helmet from "helmet";
 
 import { env } from "./config/env.js";
 import { requestLogger } from "./middlewares/requestLogger.js";
 import { errorHandler, notFoundHandler } from "./middlewares/errorHandler.js";
 import { generalLimiter } from "./middlewares/rateLimiter.js";
 import { healthRouter } from "./routes/health.routes.js";
+import { authRouter } from "./routes/auth.routes.js";
 
 /**
  * Створює і конфігурує Express app — БЕЗ виклику listen.
@@ -20,7 +22,17 @@ import { healthRouter } from "./routes/health.routes.js";
 export function createApp(): Express {
   const app = express();
 
-  // Ставиться першим — щоб усі логи містили req.id, навіть з error handler-ів.
+  // Security headers — ставимо ПЕРШИМ, до будь-чого іншого.
+  // Defaults helmet-а покривають більшість критичного:
+  //   - X-Content-Type-Options: nosniff
+  //   - X-Frame-Options: SAMEORIGIN
+  //   - Strict-Transport-Security (HSTS) — у prod
+  //   - Cross-Origin-* policies
+  // CSP вимикаємо — у API-only режимі він не потрібен (відповідь — JSON,
+  // не HTML), а на фронт-домені CSP буде налаштовуватись у Next.js окремо.
+  app.use(helmet({ contentSecurityPolicy: false }));
+
+  // Ставиться другим — щоб усі логи містили req.id, навіть з error handler-ів.
   app.use(requestLogger);
 
   // Trust proxy — потрібно якщо за reverse-proxy (Railway, Render):
@@ -44,6 +56,7 @@ export function createApp(): Express {
 
   // Версіонована API.
   app.use("/api/v1", healthRouter);
+  app.use("/api/v1/auth", authRouter);
 
   // 404 для усього що не зматчилось.
   app.use(notFoundHandler);
