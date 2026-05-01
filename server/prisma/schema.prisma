@@ -1,0 +1,257 @@
+// ============================================
+// Chat App — Prisma Schema
+// ============================================
+//
+// Конвенції:
+// - Усі ID на cuid() — sortable, не передбачувані, без monotonic-leak.
+// - Усі timestamps — DateTime з default now() / updatedAt.
+// - Soft delete — окремим полем deletedAt, без global filter
+//   (Prisma не має повної підтримки global filters, тож фільтруємо в repo).
+// - @@map використовуємо тільки коли модельне ім'я не = ім'я таблиці.
+//   У нас вони збігаються — тому без @@map.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// USER
+// ============================================
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  // Унікальний @username — для пошуку юзерів, @mention, share-link на профіль.
+  // Опційний на момент реєстрації: юзер може встановити пізніше у Settings.
+  // Унікальність — на рівні БД, перевіряємо case-insensitive у app-логіці
+  // (зберігаємо у нижньому регістрі при INSERT).
+  username      String?  @unique
+  email         String   @unique
+  password      String
+  emailVerified Boolean  @default(false)
+
+  // Аватар — URL у нашому S3/MinIO (у dev — MinIO, у prod — Cloudflare R2).
+  // У Ітерації 7 додамо upload-логіку; зараз просто колонка для майбутнього.
+  avatarUrl     String?
+
+  // Presence (last seen). Оновлюємо на disconnect останнього сокета юзера.
+  // online/offline у real-time живе в Redis — у БД не дублюємо,
+  // тримаємо тільки lastSeenAt для коли юзер не онлайн зараз.
+  lastSeenAt    DateTime @default(now())
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  emailTokens   EmailToken[]
+
+  chatMemberships ChatMember[]
+  sentMessages    Message[]    @relation("MessageAuthor")
+  reactions       Reaction[]
+  createdChats    Chat[]       @relation("ChatCreator")
+
+  @@index([email])
+  @@index([username])
+}
+
+// ============================================
+// AUTH — без змін з Task Manager (щоб не ламати працююче)
+// ============================================
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  family    String
+
+  userAgent String?
+  ipAddress String?
+
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([family])
+  @@index([expiresAt])
+}
+
+enum EmailTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model EmailToken {
+  id        String         @id @default(cuid())
+  tokenHash String         @unique
+  type      EmailTokenType
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime       @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ============================================
+// CHAT
+// ============================================
+
+enum ChatType {
+  DIRECT  // приватний 1-на-1
+  GROUP   // груповий
+}
+
+model Chat {
+  id        String   @id @default(cuid())
+  type      ChatType
+
+  // Для GROUP — назва і аватар.
+  // Для DIRECT — null (UI показує ім'я співрозмовника).
+  name      String?
+  avatarUrl String?
+
+  // Денормалізований ключ для UNIQUE приватного чату між двома юзерами.
+  // Формат: "<userIdA>:<userIdB>", де ID відсортовані лексикографічно.
+  // Для GROUP — null.
+  // Це робить race-condition-безпечне знаходження існуючого DIRECT-чату
+  // через upsert by directKey.
+  directKey String?  @unique
+
+  // Хто створив (для групових — це owner; для приватних — той хто
+  // натиснув "написати" першим, але це не має значення для UI).
+  createdById String
+  createdBy   User    @relation("ChatCreator", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members  ChatMember[]
+  messages Message[]
+
+  @@index([createdById])
+}
+
+// Окрема модель учасника — тримає membership-метадані:
+// роль (для групових), коли приєднався, lastReadMessageId, mute.
+model ChatMember {
+  id     String @id @default(cuid())
+  chatId String
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Поки що рівнів два. Власник може видаляти інших, міняти name/avatar.
+  // Для DIRECT — обидва MEMBER (без owner-логіки).
+  role MemberRole @default(MEMBER)
+
+  // Read receipt — покажчик "до якого повідомлення дочитав".
+  // Все що Message.id <= lastReadMessageId І chatId = thisChat — прочитано.
+  // Оновлюємо при відкритті чату або скролі донизу.
+  lastReadMessageId String?
+
+  // Чи замутив юзер цей чат (не отримує push). Окрема логіка від
+  // online/offline presence.
+  mutedUntil DateTime?
+
+  joinedAt DateTime  @default(now())
+  // Для soft-leave: юзер вийшов з групи, але історія його повідомлень
+  // лишається. У DIRECT — leftAt не використовуємо.
+  leftAt   DateTime?
+
+  @@unique([chatId, userId])
+  @@index([userId])
+  @@index([chatId])
+}
+
+enum MemberRole {
+  OWNER
+  MEMBER
+}
+
+// ============================================
+// MESSAGE
+// ============================================
+
+model Message {
+  id     String @id @default(cuid())
+  chatId String
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation("MessageAuthor", fields: [authorId], references: [id])
+
+  // Зміст. На soft-delete стає "" (рядок).
+  content String
+
+  // Threading: self-reference. NULL для top-level повідомлень.
+  parentMessageId String?
+  parentMessage   Message?  @relation("MessageReplies", fields: [parentMessageId], references: [id], onDelete: SetNull)
+  replies         Message[] @relation("MessageReplies")
+
+  // Edit / Soft delete
+  editedAt  DateTime?
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  reactions Reaction[]
+
+  // Full-text search:
+  // Колонка `searchVector tsvector` GENERATED ALWAYS AS (...) STORED
+  // і GIN-індекс на ній — додаються ОКРЕМИМ raw-скриптом
+  // (`prisma/sql/add_message_fts.sql`), який запускаємо
+  // після `prisma migrate dev --name init`.
+  //
+  // Чому скрипт лежить НЕ у prisma/migrations/:
+  // Prisma сканує prisma/migrations/ і вважає кожну піддиректорію
+  // своєю міграцією — будь-який чужий файл там ламає `migrate dev`
+  // з помилкою P3015. Тому тримаємо ручні скрипти у prisma/sql/.
+  //
+  // Чому НЕ через Unsupported("tsvector GENERATED ...") у схемі:
+  // Prisma 6+ страждає від drift на generated колонках —
+  // наступний `migrate dev` пробує DROP/ADD колонку і її GIN-індекс.
+  // Тримаємо tsvector повністю поза Prisma-моделлю і працюємо
+  // з ним лише через $queryRaw.
+
+  // Ключовий індекс для cursor pagination:
+  // "дай мені останні N повідомлень чату X старіших за курсор Y".
+  // Сортування за id DESC (cuid v2 є time-ordered).
+  @@index([chatId, id(sort: Desc)])
+  @@index([chatId, deletedAt])
+  @@index([authorId])
+  @@index([parentMessageId])
+}
+
+// ============================================
+// REACTION
+// ============================================
+
+model Reaction {
+  id        String  @id @default(cuid())
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Сама emoji як рядок. Не enum, не FK на табличку — найпростіше.
+  // Валідація на app-рівні (Zod): дозволяємо лише валідні emoji через regex.
+  emoji String
+
+  createdAt DateTime @default(now())
+
+  // Один юзер — одна реакція певного emoji на одне повідомлення.
+  // Якщо натиснув повторно — toggle (delete існуючу).
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}

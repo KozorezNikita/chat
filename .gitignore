@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Docker volumes (якщо bind mount випадково створиться)
+postgres-data/
+redis-data/
+
+# Test coverage
+coverage/
+
+# Prisma generated client (Prisma 7 generator)
+server/src/generated/
+
+# Prisma — зберігаємо schema, але не client
+server/prisma/migrations/migration_lock.toml
+!server/prisma/migrations/migration_lock.toml

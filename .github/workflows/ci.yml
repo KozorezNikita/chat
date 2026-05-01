@@ -1,0 +1,201 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Скасовуємо попередні запуски в тій самій гілці —
+# не марнуємо CI хвилини на застарілі коміти.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Глобальні дефолти — щоб не повторювати в кожному job.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # ============================================
+  # SHARED — типи й експорти спільної папки
+  # ============================================
+  shared:
+    name: Shared (typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: shared/package-lock.json
+
+      - name: Install
+        working-directory: shared
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: shared
+        run: npm run typecheck
+
+  # ============================================
+  # SERVER — typecheck + integration tests з Postgres
+  # ============================================
+  server:
+    name: Server (typecheck + tests)
+    runs-on: ubuntu-latest
+
+    # Postgres як service container — той самий image що локально.
+    # Healthcheck гарантує що БД готова перш ніж тести стартанули.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d test_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # Env для всього job-а — тести читають саме ці змінні.
+    # Секрети тут НЕ справжні — мінімум 32 символи (вимога нашого env.ts),
+    # але призначені тільки для CI-середовища.
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      LOG_LEVEL: silent
+      CORS_ORIGIN: http://localhost:3000
+      DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: ci_access_secret_at_least_32_chars_long_xx
+      JWT_REFRESH_SECRET: ci_refresh_secret_at_least_32_chars_long_x
+      SMTP_HOST: localhost
+      SMTP_PORT: 1025
+      EMAIL_FROM: test@test.local
+      CLIENT_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            shared/package-lock.json
+
+      # shared/ — peer-залежність server/, ставимо першим.
+      # Це той самий "file:../shared" що у server/package.json.
+      - name: Install shared
+        working-directory: shared
+        run: npm ci
+
+      - name: Install server
+        working-directory: server
+        run: npm ci
+
+      # Кеш Prisma generated client + engines.
+      # У Prisma 7 engine викинули, але adapter-pg тягне нативні модулі —
+      # все одно економимо ~30 сек на холодному запуску.
+      - name: Cache Prisma generated
+        uses: actions/cache@v4
+        with:
+          path: |
+            server/src/generated/prisma
+            ~/.npm/_prisma
+          key: prisma-${{ runner.os }}-${{ hashFiles('server/prisma/schema.prisma') }}
+
+      - name: Generate Prisma Client
+        working-directory: server
+        run: npx prisma generate
+
+      - name: Run migrations
+        working-directory: server
+        run: npx prisma migrate deploy
+
+      - name: Typecheck
+        working-directory: server
+        run: npm run typecheck
+
+      # Тести — поки що порожньо (немає жодного тесту), але pipeline готовий.
+      # `--passWithNoTests` щоб job не падав поки реальних тестів немає.
+      # Приберемо цей флаг в Ітерації 1 коли з'являться перші тести.
+      - name: Tests
+        working-directory: server
+        run: npm test -- --passWithNoTests
+
+  # ============================================
+  # CLIENT — typecheck + Next.js build
+  # ============================================
+  client:
+    name: Client (typecheck + build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            client/package-lock.json
+            shared/package-lock.json
+
+      - name: Install shared
+        working-directory: shared
+        run: npm ci
+
+      - name: Install client
+        working-directory: client
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: client
+        run: npm run typecheck
+
+      # Next.js build — найкраща перевірка фронту: ловить
+      # все від syntax errors до Tailwind-конфігу і шрифтів.
+      - name: Build
+        working-directory: client
+        run: npm run build
+        env:
+          # Білд не повинен робити запити на бекенд.
+          NEXT_TELEMETRY_DISABLED: 1
+
+  # ============================================
+  # SUMMARY — один required check для branch protection
+  # ============================================
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: [shared, server, client]
+    if: always()
+    steps:
+      - name: Check job results
+        run: |
+          if [[ "${{ needs.shared.result }}" != "success" ]]; then
+            echo "❌ shared failed"
+            exit 1
+          fi
+          if [[ "${{ needs.server.result }}" != "success" ]]; then
+            echo "❌ server failed"
+            exit 1
+          fi
+          if [[ "${{ needs.client.result }}" != "success" ]]; then
+            echo "❌ client failed"
+            exit 1
+          fi
+          echo "✅ All checks passed"

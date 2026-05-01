@@ -1,0 +1,20 @@
+import "dotenv/config";
+import { defineConfig, env } from "prisma/config";
+ 
+/**
+ * Prisma 7 config.
+ *
+ * У Prisma 7 url переїхав зі schema.prisma у цей файл.
+ * `dotenv/config` потрібен явно — Prisma 7 не вантажить .env сама.
+ *
+ * Документація: https://www.prisma.io/docs/orm/reference/prisma-config-reference
+ */
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
+  },
+  datasource: {
+    url: env("DATABASE_URL"),
+  },
+});

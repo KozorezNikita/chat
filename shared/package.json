@@ -1,0 +1,17 @@
+{
+  "name": "@chat/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Спільні Zod-схеми DTO та типи Socket.io подій між сервером і клієнтом",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "zod": "^4.4.1"
+  },
+  "dependencies": {
+    "typescript": "^6.0.3"
+  }
+}
