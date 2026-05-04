@@ -73,3 +73,18 @@ export const updateProfileSchema = z.object({
 });
 
 export type UpdateProfileDto = z.infer<typeof updateProfileSchema>;
+
+/**
+ * Query-параметри для пошуку юзерів (для нового direct-чату).
+ *
+ * q — точний email АБО @username (можна без @). Сервер сам розбирає
+ * формат і шукає відповідно. ILIKE по name НЕ робимо (privacy).
+ *
+ * limit — для безпеки cap-имо у 25 щоб ніхто не перебирав БД.
+ */
+export const searchUsersQuerySchema = z.object({
+  q: z.string().trim().min(1).max(100),
+  limit: z.coerce.number().int().min(1).max(25).optional().default(10),
+});
+
+export type SearchUsersQuery = z.infer<typeof searchUsersQuerySchema>;

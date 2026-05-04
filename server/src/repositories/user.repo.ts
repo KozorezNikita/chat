@@ -86,3 +86,67 @@ export async function updatePasswordHash(userId: string, passwordHash: string) {
     data: { password: passwordHash },
   });
 }
+
+/**
+ * Пошук багатьох юзерів за списком id — для перевірки що всі member-и
+ * group chat існують при створенні.
+ *
+ * Повертає тільки існуючих юзерів. Сервіс порівнює довжину з input,
+ * якщо коротша — кидає 400.
+ */
+export async function findUsersByIds(ids: string[]) {
+  if (ids.length === 0) return [];
+  return prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      avatarUrl: true,
+    },
+  });
+}
+
+/**
+ * Пошук юзерів для створення direct-чату.
+ *
+ * Стратегія (узгоджено в плані 2.1):
+ *  - Точний match по email → 1 результат
+ *  - Точний match по @username → 1 результат
+ *  - Жодних ILIKE по name (privacy: щоб не можна було перебирати юзерів
+ *    за частковим іменем)
+ *
+ * Виключаємо self з результатів (excludeUserId).
+ *
+ * Якщо query схожий на email (містить @ і має домен) — шукаємо за email,
+ * інакше за username.
+ */
+const EMAIL_LIKE_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export async function searchUsers(query: string, excludeUserId: string, limit: number) {
+  const trimmed = query.trim().toLowerCase();
+  if (trimmed.length === 0) return [];
+
+  const isEmail = EMAIL_LIKE_REGEX.test(trimmed);
+  const usernameQuery = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+
+  const where = isEmail
+    ? { email: trimmed }
+    : { username: usernameQuery };
+
+  return prisma.user.findMany({
+    where: {
+      AND: [
+        where,
+        { id: { not: excludeUserId } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      avatarUrl: true,
+    },
+    take: limit,
+  });
+}

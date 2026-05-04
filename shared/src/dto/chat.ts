@@ -38,6 +38,11 @@ export const chatLastMessagePreviewSchema = z.object({
 
 export type ChatLastMessagePreview = z.infer<typeof chatLastMessagePreviewSchema>;
 
+/**
+ * Alias — щоб не плутатись між "preview у списку чатів" і "повідомлення взагалі".
+ */
+export type MessagePreview = ChatLastMessagePreview;
+
 export const chatSchema = z.object({
   id: z.string(),
   type: chatTypeSchema,
@@ -96,3 +101,25 @@ export const addChatMemberSchema = z.object({
 });
 
 export type AddChatMemberDto = z.infer<typeof addChatMemberSchema>;
+
+/**
+ * Позначення прочитаності — клієнт шле останній видимий messageId,
+ * сервер оновлює ChatMember.lastReadMessageId.
+ */
+export const markAsReadSchema = z.object({
+  messageId: z.string().min(1),
+});
+
+export type MarkAsReadDto = z.infer<typeof markAsReadSchema>;
+
+/**
+ * URL params для chat-роутів.
+ */
+export const chatIdParamSchema = z.object({
+  chatId: z.string().min(1),
+});
+
+export const chatMemberParamSchema = z.object({
+  chatId: z.string().min(1),
+  userId: z.string().min(1),
+});

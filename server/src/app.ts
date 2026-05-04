@@ -9,6 +9,8 @@ import { errorHandler, notFoundHandler } from "./middlewares/errorHandler.js";
 import { generalLimiter } from "./middlewares/rateLimiter.js";
 import { healthRouter } from "./routes/health.routes.js";
 import { authRouter } from "./routes/auth.routes.js";
+import { chatRouter } from "./routes/chat.routes.js";
+import { userRouter } from "./routes/user.routes.js";
 
 /**
  * Створює і конфігурує Express app — БЕЗ виклику listen.
@@ -57,6 +59,8 @@ export function createApp(): Express {
   // Версіонована API.
   app.use("/api/v1", healthRouter);
   app.use("/api/v1/auth", authRouter);
+  app.use("/api/v1/chats", chatRouter);
+  app.use("/api/v1/users", userRouter);
 
   // 404 для усього що не зматчилось.
   app.use(notFoundHandler);
