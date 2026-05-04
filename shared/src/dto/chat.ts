@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { publicUserSchema } from "./user.js";
+import { publicUserSchema } from "./user";
 
 export const chatTypeSchema = z.enum(["DIRECT", "GROUP"]);
 export type ChatType = z.infer<typeof chatTypeSchema>;

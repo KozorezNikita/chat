@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { publicUserSchema } from "./user.js";
-import { cursorQuerySchema, cursorPageSchema } from "./pagination.js";
+import { publicUserSchema } from "./user";
+import { cursorQuerySchema, cursorPageSchema } from "./pagination";
 
 /**
  * Реакція — Zod-схема.

@@ -8,7 +8,7 @@ import type {
   MeUser,
 } from "@chat/shared";
 
-import { api } from "./client.js";
+import { api } from "./client";
 
 /**
  * Auth endpoints — типізовані обгортки над apiClient.

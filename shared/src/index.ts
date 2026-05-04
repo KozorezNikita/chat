@@ -1,10 +1,10 @@
 // DTO
-export * from "./dto/pagination.js";
-export * from "./dto/user.js";
-export * from "./dto/auth.js";
-export * from "./dto/chat.js";
-export * from "./dto/message.js";
-export * from "./dto/reaction.js";
+export * from "./dto/pagination";
+export * from "./dto/user";
+export * from "./dto/auth";
+export * from "./dto/chat";
+export * from "./dto/message";
+export * from "./dto/reaction";
 
 // Socket.io types
-export * from "./events/socket.js";
+export * from "./events/socket";

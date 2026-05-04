@@ -25,8 +25,8 @@
  * Використовуємо для send-message (треба знати serverId і createdAt).
  */
 
-import type { Message, SentMessageResponse } from "../dto/message.js";
-import type { UserPresence } from "../dto/user.js";
+import type { Message, SentMessageResponse } from "../dto/message";
+import type { UserPresence } from "../dto/user";
 
 // ============================================
 // CLIENT → SERVER
