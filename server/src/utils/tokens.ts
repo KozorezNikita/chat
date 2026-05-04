@@ -131,7 +131,7 @@ const isTestEnv = process.env.NODE_ENV === "test";
 
 const TEST_ARGON2_OPTIONS = {
   memoryCost: 1024,   // 1 MB замість 64 MB
-  timeCost: 2,
+  timeCost: 2,        // мінімум дозволений argon2 пакетом
   parallelism: 1,
 };
 
