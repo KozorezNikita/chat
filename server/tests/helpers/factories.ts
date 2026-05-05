@@ -1,4 +1,5 @@
 import request from "supertest";
+import type { Express } from "express";
 
 import { prisma } from "./db.js";
 import { app } from "./app.js";
@@ -58,6 +59,143 @@ export async function createUser(options: CreateUserOptions = {}) {
  */
 export async function createVerifiedUser(options: CreateUserOptions = {}) {
   return createUser({ ...options, emailVerified: true });
+}
+
+// ============================================
+// Chat factories
+// ============================================
+
+interface CreateDirectChatOptions {
+  userIdA: string;
+  userIdB: string;
+}
+
+/**
+ * Створює DIRECT-чат між двома юзерами.
+ * directKey будуємо тут же (sorted lex order, як у сервісі).
+ */
+export async function createDirectChat(opts: CreateDirectChatOptions) {
+  const directKey = [opts.userIdA, opts.userIdB].sort().join(":");
+
+  return prisma.chat.create({
+    data: {
+      type: "DIRECT",
+      directKey,
+      createdById: opts.userIdA,
+      members: {
+        create: [
+          { userId: opts.userIdA, role: "MEMBER" },
+          { userId: opts.userIdB, role: "MEMBER" },
+        ],
+      },
+    },
+    include: {
+      members: { include: { user: true } },
+    },
+  });
+}
+
+interface CreateGroupChatOptions {
+  ownerId: string;
+  memberIds: string[];
+  name?: string;
+}
+
+/**
+ * Створює GROUP-чат з owner + memberIds.
+ */
+export async function createGroupChat(opts: CreateGroupChatOptions) {
+  return prisma.chat.create({
+    data: {
+      type: "GROUP",
+      name: opts.name ?? "Test group",
+      createdById: opts.ownerId,
+      members: {
+        create: [
+          { userId: opts.ownerId, role: "OWNER" },
+          ...opts.memberIds.map((userId) => ({
+            userId,
+            role: "MEMBER" as const,
+          })),
+        ],
+      },
+    },
+    include: {
+      members: { include: { user: true } },
+    },
+  });
+}
+
+// ============================================
+// Message factories
+// ============================================
+
+interface SendMessageOptions {
+  chatId: string;
+  authorId: string;
+  content?: string;
+}
+
+/**
+ * Створює Message прямо в БД (без HTTP). Корисно для arrange-фази
+ * тестів edit/delete/list — швидше за прокручування sendMessage REST.
+ */
+export async function createMessage(opts: SendMessageOptions) {
+  return prisma.message.create({
+    data: {
+      chatId: opts.chatId,
+      authorId: opts.authorId,
+      content: opts.content ?? "Test message",
+    },
+    include: {
+      author: {
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          avatarUrl: true,
+        },
+      },
+    },
+  });
+}
+
+// ============================================
+// Auth helpers
+// ============================================
+
+/**
+ * Login + повернути set-cookie заголовки. Юзер має бути verified.
+ */
+export async function loginAndGetCookies(
+  app: Express,
+  email: string,
+  password: string,
+): Promise<string[]> {
+  const res = await request(app)
+    .post("/api/v1/auth/login")
+    .send({ email, password });
+
+  if (res.status !== 200) {
+    throw new Error(
+      `Login failed for ${email}: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+
+  return res.headers["set-cookie"] as unknown as string[];
+}
+
+/**
+ * Скорочення: створити verified юзера + одразу залогінити.
+ * Повертає юзера + cookies.
+ */
+export async function createUserAndLogin(
+  app: Express,
+  options: CreateUserOptions = {},
+) {
+  const { user, password } = await createVerifiedUser(options);
+  const cookies = await loginAndGetCookies(app, user.email, password);
+  return { user, cookies, password };
 }
 
 /**

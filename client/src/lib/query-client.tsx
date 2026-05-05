@@ -48,9 +48,10 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     function handleAuthFailed() {
-      // Викидаємо все що пов'язане з юзером — useMe поверне null/error
+      // Просто стираємо стан юзера. НЕ робимо invalidate — це б запустило
+      // новий fetch на /me який знову поверне 401 → знов handleAuthFailed →
+      // нескінченний цикл на сторінках де є useMe (наприклад, головна).
       queryClient.setQueryData(["me"], null);
-      queryClient.invalidateQueries({ queryKey: ["me"] });
     }
 
     window.addEventListener(AUTH_FAILED_EVENT, handleAuthFailed);

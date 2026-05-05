@@ -7,6 +7,8 @@ import {
   markAsReadSchema,
   chatIdParamSchema,
   chatMemberParamSchema,
+  sendMessageSchema,
+  getMessagesQuerySchema,
 } from "@chat/shared";
 
 import { validate } from "../middlewares/validate.js";
@@ -14,6 +16,7 @@ import { requireAuth } from "../middlewares/auth.js";
 import { requireChatMembership } from "../middlewares/chatMembership.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import * as chatController from "../controllers/chat.controller.js";
+import * as messageController from "../controllers/message.controller.js";
 
 const router = Router();
 
@@ -102,6 +105,24 @@ router.post(
   validate({ params: chatIdParamSchema, body: markAsReadSchema }),
   asyncHandler(requireChatMembership),
   asyncHandler(chatController.markAsRead),
+);
+
+// ============================================
+// Messages (list + send) — nested під chat для membership-check
+// ============================================
+
+router.get(
+  "/:chatId/messages",
+  validate({ params: chatIdParamSchema, query: getMessagesQuerySchema }),
+  asyncHandler(requireChatMembership),
+  asyncHandler(messageController.getMessages),
+);
+
+router.post(
+  "/:chatId/messages",
+  validate({ params: chatIdParamSchema, body: sendMessageSchema }),
+  asyncHandler(requireChatMembership),
+  asyncHandler(messageController.sendMessage),
 );
 
 export { router as chatRouter };

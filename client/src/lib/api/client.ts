@@ -105,9 +105,12 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Не пробуємо refresh для login/register/me — на login сторінці
-    // 401 нормально (юзер вводить пароль), refresh не потрібен.
-    const skipRefreshUrls = ["/auth/login", "/auth/register"];
+    // Не пробуємо refresh для login/register/me/logout:
+    //  - login/register — 401 на цих очікуваний (юзер вводить дані)
+    //  - me — на стартовій сторінці юзер може бути не залогінений; 401 від /me
+    //    означає просто "not logged in", refresh тут не врятує і створить цикл
+    //  - logout — після нього cookies стерті, refresh не потрібен
+    const skipRefreshUrls = ["/auth/login", "/auth/register", "/auth/me", "/auth/logout"];
     if (skipRefreshUrls.some((url) => originalRequest.url?.includes(url))) {
       return Promise.reject(error);
     }

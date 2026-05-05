@@ -9,11 +9,17 @@ export type MemberRole = z.infer<typeof memberRoleSchema>;
 
 /**
  * Учасник чату — юзер + його роль/membership-метадані.
+ *
+ * userId дублює user.id для зручності (uniformly можна посилатись).
+ * leftAt — для майбутньої історії "Lyudmyla left the chat" (поки не показуємо
+ * left-членів у списку, але поле зберігаємо).
  */
 export const chatMemberSchema = z.object({
+  userId: z.string(),
   user: publicUserSchema,
   role: memberRoleSchema,
   joinedAt: z.string().datetime(),
+  leftAt: z.string().datetime().nullable(),
 });
 
 export type ChatMember = z.infer<typeof chatMemberSchema>;

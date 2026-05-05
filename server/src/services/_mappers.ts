@@ -132,3 +132,62 @@ function mapLastMessageToPreview(row: LastMessagePreviewRow): MessagePreview {
     isDeleted: row.deletedAt !== null,
   };
 }
+
+// ============================================
+// Message
+// ============================================
+
+import type { Message } from "@chat/shared";
+
+/**
+ * Структурний тип Prisma Message з підвантаженим author.
+ * Як з ChatWithMembers — описуємо потрібні поля явно, без посилання
+ * на PrismaClient namespace.
+ */
+export interface MessageWithAuthor {
+  id: string;
+  chatId: string;
+  authorId: string;
+  content: string;
+  parentMessageId: string | null;
+  editedAt: Date | null;
+  deletedAt: Date | null;
+  createdAt: Date;
+  author: {
+    id: string;
+    name: string;
+    username: string | null;
+    avatarUrl: string | null;
+  };
+}
+
+/**
+ * Maps Prisma Message → Message DTO.
+ *
+ * Якщо deletedAt не null — content повертаємо "" (узгоджено: soft delete
+ * без leaking оригінального тексту). Клієнт перевіряє `deletedAt !== null`
+ * щоб показати "Це повідомлення видалено".
+ *
+ * reactions і replyCount поки що пусті — заповнимо в Ітераціях 5 і 6.
+ */
+export function mapMessageToDto(message: MessageWithAuthor): Message {
+  const isDeleted = message.deletedAt !== null;
+
+  return {
+    id: message.id,
+    chatId: message.chatId,
+    author: {
+      id: message.author.id,
+      name: message.author.name,
+      username: message.author.username,
+      avatarUrl: message.author.avatarUrl,
+    },
+    content: isDeleted ? "" : message.content,
+    parentMessageId: message.parentMessageId,
+    replyCount: 0,
+    reactions: [],
+    editedAt: message.editedAt ? message.editedAt.toISOString() : null,
+    deletedAt: message.deletedAt ? message.deletedAt.toISOString() : null,
+    createdAt: message.createdAt.toISOString(),
+  };
+}
