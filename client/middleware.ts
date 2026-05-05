@@ -38,8 +38,8 @@ const PUBLIC_AUTH_ROUTES = [
 ];
 
 const PROTECTED_ROUTES: string[] = [
-  // Поки немає захищених роутів. У наступних ітераціях додамо:
-  // "/chats",
+  "/chats",
+  // У наступних ітераціях:
   // "/settings",
 ];
 

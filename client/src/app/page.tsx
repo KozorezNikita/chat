@@ -183,9 +183,12 @@ function LoggedInCTA({
     <>
       <p className="mb-10 max-w-xl text-balance text-lg text-muted-foreground">
         Привіт, <span className="font-medium text-foreground">{name}</span>! Ви залогінені як{" "}
-        <span className="font-mono text-sm">{email}</span>. Сторінка чатів з'явиться в наступній ітерації.
+        <span className="font-mono text-sm">{email}</span>.
       </p>
       <div className="flex flex-col gap-3 sm:flex-row">
+        <Button asChild size="lg" variant="sunset" disabled={isPending}>
+          <Link href="/chats">Перейти до чатів</Link>
+        </Button>
         <Button size="lg" variant="outline" onClick={onLogout} disabled={isPending}>
           <LogOut className="h-4 w-4" />
           Logout
