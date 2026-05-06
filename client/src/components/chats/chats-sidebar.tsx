@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Plus, Loader2 } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import type { Chat, MeUser } from "@chat/shared";
 
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useChats } from "@/hooks/use-chats";
 import { getChatTitle } from "@/lib/utils/chat-utils";
 import { ChatListItem } from "./chat-list-item";
+import { NewChatButton } from "./new-chat-button";
 
 interface ChatsSidebarProps {
   user: MeUser;
@@ -36,17 +36,7 @@ export function ChatsSidebar({ user }: ChatsSidebarProps) {
       <div className="border-b border-border p-3">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">Чати</h2>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              // У 2.5 — модалка "New chat"
-              alert("New chat — в наступному кроці");
-            }}
-            aria-label="New chat"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+          <NewChatButton />
         </div>
 
         <div className="relative">
