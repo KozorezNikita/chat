@@ -199,7 +199,7 @@ function LoggedInCTA({
           onClick={onLogoutAll}
           disabled={isPending}
         >
-          Logout from all devices
+          Logout from account from all devices
         </Button>
       </div>
     </>
