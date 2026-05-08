@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { QueryProvider } from "@/lib/query-client";
+import { SocketProvider } from "@/providers/socket-provider";
+import { SocketEventsListener } from "@/providers/socket-events-listener";
 import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
@@ -38,8 +40,11 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <QueryProvider>
-            {children}
-            <Toaster />
+            <SocketProvider>
+              <SocketEventsListener />
+              {children}
+              <Toaster />
+            </SocketProvider>
           </QueryProvider>
         </ThemeProvider>
       </body>

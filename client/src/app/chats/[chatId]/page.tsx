@@ -6,6 +6,8 @@ import { Loader2 } from "lucide-react";
 import { useChat } from "@/hooks/use-chats";
 import { useMe } from "@/hooks/use-auth";
 import { ChatHeader } from "@/components/chats/chat-header";
+import { MessageList } from "@/components/chats/messages/message-list";
+import { MessageInput } from "@/components/chats/messages/message-input";
 
 interface ChatDetailPageProps {
   params: Promise<{ chatId: string }>;
@@ -14,11 +16,11 @@ interface ChatDetailPageProps {
 /**
  * /chats/[chatId] — обраний чат.
  *
- * У 2.4: header + placeholder для повідомлень.
- * У 2.6: ChatMessages список + MessageInput.
+ * Header → MessageList → MessageInput.
+ * MessageList використовує useInfiniteQuery, MessageInput — useSendMessage
+ * з optimistic UI.
  */
 export default function ChatDetailPage({ params }: ChatDetailPageProps) {
-  // Next.js 16: params — це Promise, треба використати React.use()
   const { chatId } = use(params);
 
   const { data: meData } = useMe();
@@ -53,14 +55,8 @@ export default function ChatDetailPage({ params }: ChatDetailPageProps) {
   return (
     <>
       <ChatHeader chat={data.chat} user={meData.user} />
-
-      {/* Messages placeholder — у 2.6 буде MessageList + MessageInput */}
-      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        <div className="text-center">
-          <p>Повідомлення з'являться тут</p>
-          <p className="text-xs">(буде реалізовано в наступному кроці 2.6)</p>
-        </div>
-      </div>
+      <MessageList chatId={chatId} currentUserId={meData.user.id} />
+      <MessageInput chatId={chatId} user={meData.user} />
     </>
   );
 }

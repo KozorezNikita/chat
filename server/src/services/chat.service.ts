@@ -15,6 +15,13 @@ import {
   ConflictError,
 } from "../utils/HttpError.js";
 import { mapChatToDto, type ChatWithMembers } from "./_mappers.js";
+import {
+  broadcastChatUpdated,
+  broadcastChatDeleted,
+  broadcastMemberAdded,
+  broadcastMemberRemoved,
+  broadcastDirectChatCreated,
+} from "../socket/broadcast.js";
 
 /**
  * ============================================
@@ -111,10 +118,16 @@ export async function createDirectChat(
     currentUserId,
   );
 
-  return mapChatToDto(chat as ChatWithMembers, {
+  const chatDto = mapChatToDto(chat as ChatWithMembers, {
     unreadCount: 0,
     lastMessage: undefined,
   });
+
+  // Real-time: обидва учасники join-уться в room і отримують подію.
+  // upsert ідемпотентний — якщо чат існував, повторний join у room теж OK.
+  broadcastDirectChatCreated(chatDto);
+
+  return chatDto;
 }
 
 /**
@@ -166,10 +179,16 @@ export async function createGroupChat(
     memberIds,
   });
 
-  return mapChatToDto(chat as ChatWithMembers, {
+  const chatDto = mapChatToDto(chat as ChatWithMembers, {
     unreadCount: 0,
     lastMessage: undefined,
   });
+
+  // Real-time: всі учасники (owner + members) join-уться у chat-room.
+  // Реюзаємо broadcastDirectChatCreated, бо логіка ідентична.
+  broadcastDirectChatCreated(chatDto);
+
+  return chatDto;
 }
 
 // ============================================
@@ -203,10 +222,14 @@ export async function updateGroupChat(
   }
 
   const updated = await chatRepo.updateGroupChat(chatId, dto);
-  return mapChatToDto(updated as ChatWithMembers, {
+  const chatDto = mapChatToDto(updated as ChatWithMembers, {
     unreadCount: 0,
     lastMessage: undefined,
   });
+
+  broadcastChatUpdated(chatDto);
+
+  return chatDto;
 }
 
 /**
@@ -233,6 +256,7 @@ export async function deleteGroupChat(chatId: string, currentUserId: string): Pr
   }
 
   await chatRepo.deleteChat(chatId);
+  broadcastChatDeleted(chatId);
 }
 
 // ============================================
@@ -281,12 +305,25 @@ export async function addMember(
 
   await chatRepo.addChatMember(chatId, newMemberId, "MEMBER");
 
-  return {
+  const newMemberDto = {
     id: newUser.id,
     name: newUser.name,
     username: newUser.username,
     avatarUrl: newUser.avatarUrl,
   };
+
+  // Broadcast усім + сервер join-ить нового юзера у chat-room.
+  // У ChatMember DTO нам потрібні role/joinedAt/leftAt — конструюємо вручну
+  // (нам не треба ще раз ходити в БД, ми щойно створили запис).
+  broadcastMemberAdded(chatId, {
+    userId: newMemberId,
+    user: newMemberDto,
+    role: "MEMBER",
+    joinedAt: new Date().toISOString(),
+    leftAt: null,
+  });
+
+  return newMemberDto;
 }
 
 /**
@@ -346,6 +383,7 @@ export async function removeMember(
   }
 
   await chatRepo.softRemoveMember(chatId, targetUserId);
+  broadcastMemberRemoved(chatId, targetUserId);
 }
 
 // ============================================

@@ -2,6 +2,11 @@ import type { Message, MessagePage, SendMessageDto, EditMessageDto, GetMessagesQ
 
 import * as messageRepo from "../repositories/message.repo.js";
 import * as chatRepo from "../repositories/chat.repo.js";
+import {
+  broadcastNewMessage,
+  broadcastEditedMessage,
+  broadcastDeletedMessage,
+} from "../socket/broadcast.js";
 import { ForbiddenError, NotFoundError, BadRequestError } from "../utils/HttpError.js";
 import { mapMessageToDto, type MessageWithAuthor } from "./_mappers.js";
 
@@ -48,8 +53,14 @@ export async function sendMessage(
     parentMessageId: undefined,
   });
 
+  const messageDto = mapMessageToDto(message as MessageWithAuthor);
+
+  // Broadcast усім members chat-room. Передаємо clientId — автор замінить
+  // свою optimistic message у кеші на серверний (без дублів).
+  broadcastNewMessage(chatId, messageDto, dto.clientId);
+
   return {
-    ...mapMessageToDto(message as MessageWithAuthor),
+    ...messageDto,
     clientId: dto.clientId,
   };
 }
@@ -95,7 +106,10 @@ export async function editMessage(
     content: dto.content,
   });
 
-  return mapMessageToDto(updated as MessageWithAuthor);
+  const messageDto = mapMessageToDto(updated as MessageWithAuthor);
+  broadcastEditedMessage(message.chatId, messageDto);
+
+  return messageDto;
 }
 
 // ============================================
@@ -120,13 +134,16 @@ export async function deleteMessage(messageId: string, userId: string): Promise<
     throw new ForbiddenError("Cannot delete another user's message", "NOT_MESSAGE_AUTHOR");
   }
 
-  // Якщо вже deleted — повертаємо як є (idempotent).
+  // Якщо вже deleted — повертаємо як є (idempotent), broadcast не повторюємо.
   if (message.deletedAt !== null) {
     return mapMessageToDto(message as MessageWithAuthor);
   }
 
   const deleted = await messageRepo.softDeleteMessage(messageId);
-  return mapMessageToDto(deleted as MessageWithAuthor);
+  const messageDto = mapMessageToDto(deleted as MessageWithAuthor);
+  broadcastDeletedMessage(message.chatId, messageDto);
+
+  return messageDto;
 }
 
 // ============================================

@@ -74,6 +74,16 @@ export async function findMembership(chatId: string, userId: string) {
   });
 }
 
+/**
+ * Усі активні memberships юзера — для join у chat-rooms при WS connect.
+ */
+export async function findActiveMembershipsByUser(userId: string) {
+  return prisma.chatMember.findMany({
+    where: { userId, leftAt: null },
+    select: { chatId: true },
+  });
+}
+
 // ============================================
 // CREATE
 // ============================================
