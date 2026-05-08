@@ -43,14 +43,18 @@ const REFRESH_COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
  * Опції для обох auth cookies. Узгоджено в плані ітерації:
  * - httpOnly: завжди (захист від XSS)
  * - secure: тільки prod (бо у dev HTTP)
- * - sameSite: lax у обох (баланс безпеки і UX)
- * - path: "/" (cookies доступні усім роутам, включно з фронт-сторінками)
+ * - sameSite:
+ *     - dev: "lax" (баланс безпеки і UX, працює з localhost:3000 → localhost:5000)
+ *     - prod: "none" (бо frontend на Vercel і backend на Render — різні домени)
+ *       Браузер вимагає secure=true для sameSite=none, що ми вже маємо.
+ * - path: "/" (cookies доступні усім роутам)
  */
 function getCookieOptions(maxAgeMs: number) {
+  const isProd = env.NODE_ENV === "production";
   return {
     httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "lax" as const,
+    secure: isProd,
+    sameSite: (isProd ? "none" : "lax") as "none" | "lax",
     maxAge: maxAgeMs,
     path: "/",
     ...(env.COOKIE_DOMAIN && { domain: env.COOKIE_DOMAIN }),

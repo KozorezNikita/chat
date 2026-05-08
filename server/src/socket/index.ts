@@ -17,14 +17,15 @@ import { socketLogger } from "./logger.js";
  *  - cookies through credentials: true
  *  - auth middleware (handshake)
  *  - connection handler (rooms join)
+ *  - Redis adapter (опційно, тільки якщо встановлено REDIS_URL)
  *
- * Експорт `io` — singleton-style. Інші модулі (наприклад chat.service)
- * імпортуватимуть його для broadcast у Iter 3.2.
+ * Експорт `io` — singleton-style. Інші модулі (chat.service, message.service)
+ * імпортують його для broadcast.
  */
 
 let ioInstance: AppServer | null = null;
 
-export function initSocket(httpServer: HttpServer): AppServer {
+export async function initSocket(httpServer: HttpServer): Promise<AppServer> {
   if (ioInstance) {
     throw new Error("Socket.io already initialized");
   }
@@ -34,23 +35,41 @@ export function initSocket(httpServer: HttpServer): AppServer {
       origin: env.CORS_ORIGIN,
       credentials: true,
     },
-    // Iter 3 — не використовуємо Redis adapter, лише в production deploy (3.5)
-    // де у нас один інстанс. У Iter 4 додамо Redis для multi-instance.
   });
+
+  // Redis adapter — опційно, для multi-instance scaling.
+  // Якщо REDIS_URL встановлено — підключаємо. Інакше in-memory (default).
+  // У нас single-instance free tier на Render, але закладаємо щоб коли
+  // перейдемо на Hobby plan / 2+ інстансів — нічого не міняти.
+  if (env.REDIS_URL) {
+    try {
+      const { createAdapter } = await import("@socket.io/redis-adapter");
+      const { createClient } = await import("redis");
+
+      const pubClient = createClient({ url: env.REDIS_URL });
+      const subClient = pubClient.duplicate();
+
+      await Promise.all([pubClient.connect(), subClient.connect()]);
+
+      io.adapter(createAdapter(pubClient, subClient));
+      socketLogger.info("Redis adapter attached");
+    } catch (err) {
+      socketLogger.error({ err }, "Failed to attach Redis adapter, falling back to in-memory");
+    }
+  }
 
   io.use(socketAuthMiddleware);
   setupConnectionHandler(io);
 
   ioInstance = io;
-  socketLogger.info("Socket.io initialized");
+  socketLogger.info({ withRedis: !!env.REDIS_URL }, "Socket.io initialized");
   return io;
 }
 
 /**
  * Доступ до io з інших модулів (chat.service, message.service для broadcast).
  *
- * Кидає якщо initSocket ще не викликано — це safety-net на випадок
- * неправильного порядку завантаження.
+ * Кидає якщо initSocket ще не викликано — це safety-net.
  */
 export function getIO(): AppServer {
   if (!ioInstance) {

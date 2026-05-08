@@ -24,61 +24,65 @@ import { initSocket } from "./socket/index.js";
  * Якщо за 10 секунд не закрилось — force exit.
  */
 
-const app = createApp();
-const httpServer = createServer(app);
-const io = initSocket(httpServer);
+async function bootstrap() {
+  const app = createApp();
+  const httpServer = createServer(app);
+  const io = await initSocket(httpServer);
 
-httpServer.listen(env.PORT, () => {
-  logger.info(
-    { port: env.PORT, env: env.NODE_ENV },
-    `🚀 Server listening on http://localhost:${env.PORT}`,
-  );
-});
+  httpServer.listen(env.PORT, () => {
+    logger.info(
+      { port: env.PORT, env: env.NODE_ENV },
+      `🚀 Server listening on http://localhost:${env.PORT}`,
+    );
+  });
 
-const SHUTDOWN_TIMEOUT_MS = 10_000;
+  const SHUTDOWN_TIMEOUT_MS = 10_000;
 
-async function shutdown(signal: string) {
-  logger.info({ signal }, "Shutdown signal received, closing gracefully...");
+  async function shutdown(signal: string) {
+    logger.info({ signal }, "Shutdown signal received, closing gracefully...");
 
-  const forceExit = setTimeout(() => {
-    logger.error("Graceful shutdown timeout exceeded, forcing exit");
-    process.exit(1);
-  }, SHUTDOWN_TIMEOUT_MS);
+    const forceExit = setTimeout(() => {
+      logger.error("Graceful shutdown timeout exceeded, forcing exit");
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS);
 
-  forceExit.unref();
+    forceExit.unref();
 
-  try {
-    // Закриваємо Socket.io першим — disconnect усіх клієнтів
-    await new Promise<void>((resolve) => {
-      io.close(() => resolve());
-    });
+    try {
+      await new Promise<void>((resolve) => {
+        io.close(() => resolve());
+      });
 
-    // Потім HTTP — finishes pending requests
-    await new Promise<void>((resolve, reject) => {
-      httpServer.close((err) => (err ? reject(err) : resolve()));
-    });
+      await new Promise<void>((resolve, reject) => {
+        httpServer.close((err) => (err ? reject(err) : resolve()));
+      });
 
-    // Prisma — connection pool
-    await prisma.$disconnect();
+      await prisma.$disconnect();
 
-    logger.info("Shutdown complete");
-    clearTimeout(forceExit);
-    process.exit(0);
-  } catch (err) {
-    logger.error({ err }, "Error during shutdown");
-    clearTimeout(forceExit);
-    process.exit(1);
+      logger.info("Shutdown complete");
+      clearTimeout(forceExit);
+      process.exit(0);
+    } catch (err) {
+      logger.error({ err }, "Error during shutdown");
+      clearTimeout(forceExit);
+      process.exit(1);
+    }
   }
+
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+
+  process.on("unhandledRejection", (reason) => {
+    logger.error({ reason }, "Unhandled promise rejection");
+  });
+
+  process.on("uncaughtException", (err) => {
+    logger.fatal({ err }, "Uncaught exception — shutting down");
+    void shutdown("uncaughtException");
+  });
 }
 
-process.on("SIGTERM", () => void shutdown("SIGTERM"));
-process.on("SIGINT", () => void shutdown("SIGINT"));
-
-process.on("unhandledRejection", (reason) => {
-  logger.error({ reason }, "Unhandled promise rejection");
-});
-
-process.on("uncaughtException", (err) => {
-  logger.fatal({ err }, "Uncaught exception — shutting down");
-  void shutdown("uncaughtException");
+bootstrap().catch((err) => {
+  logger.fatal({ err }, "Failed to bootstrap server");
+  process.exit(1);
 });

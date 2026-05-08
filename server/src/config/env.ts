@@ -20,7 +20,10 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().url(),
 
   DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().url(),
+
+  // Опційний — у dev і single-instance prod не потрібен.
+  // Якщо встановлено — Socket.io використовує Redis adapter для multi-instance.
+  REDIS_URL: z.string().url().optional(),
 
   JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET має бути мінімум 32 символи"),
   JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET має бути мінімум 32 символи"),

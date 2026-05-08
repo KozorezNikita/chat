@@ -1,0 +1,35 @@
+# Render blueprint — автоматичне розгортання
+# Покладеш цей файл у root репо, прив'яжеш repo до Render → все підхопиться.
+# Альтернатива: створити сервіс вручну в UI і налаштувати ці ж параметри.
+#
+# Free tier:
+# - 750 годин/місяць (досить на 1 інстанс 24/7)
+# - sleeps після 15 хв inactivity, cold start ~30 сек
+
+services:
+  - type: web
+    name: chat-server
+    runtime: node
+    plan: free
+    region: frankfurt # ближче до тебе ніж oregon
+    rootDir: server
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm run start:migrate
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: PORT
+        # Render автоматично заповнить
+        sync: false
+
+      # Інші змінні встанови у Render Dashboard → Environment manually:
+      #   CORS_ORIGIN     - https://chat-yourname.vercel.app
+      #   DATABASE_URL    - з Neon
+      #   JWT_ACCESS_SECRET
+      #   JWT_REFRESH_SECRET
+      #   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM
+      #   CLIENT_URL      - https://chat-yourname.vercel.app
+      # (REDIS_URL — опційно, тільки якщо переходиш на 2+ інстансів)
