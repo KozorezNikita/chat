@@ -33,8 +33,8 @@
  * Iter 3 — мінімум подій щоб real-time messaging працював.
  */
 
-import type { Chat, ChatMember } from "../dto/chat";
-import type { Message } from "../dto/message";
+import type { Chat, ChatMember } from "../dto/chat.js";
+import type { Message } from "../dto/message.js";
 
 // ============================================
 // CLIENT → SERVER

@@ -12,13 +12,13 @@ const config: NextConfig = {
   // інакше .ts/.tsx файли поза client/ не пройдуть через SWC.
   transpilePackages: ["@chat/shared"],
 
-  // Turbopack alias на конкретний файл — точніше за npm symlink, бо
-  // Turbopack не приймає .ts як runtime entry через package.json main.
-  // Шлях відносно client/ (де next.config.ts) — Turbopack server-relative
-  // imports не підтримує.
+  // shared/ компілюється у власну dist/ (npm run build).
+  // Turbopack alias на скомпільований JS — Turbopack не вміє резолвити
+  // ".js → .ts" mapping у ESM imports (issue #82945).
+  // Перед dev/build треба запустити npm run build у shared/.
   turbopack: {
     resolveAlias: {
-      "@chat/shared": "../shared/src/index.ts",
+      "@chat/shared": "../shared/dist/index.js",
     },
   },
 
