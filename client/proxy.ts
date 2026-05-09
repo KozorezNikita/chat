@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Next.js middleware — пасивний захист майбутніх захищених роутів.
+ * Next.js proxy — пасивний захист майбутніх захищених роутів.
  *
  * ============================================
  * Що це робить
@@ -43,7 +43,7 @@ const PROTECTED_ROUTES: string[] = [
   // "/settings",
 ];
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const hasAccessToken = req.cookies.has("accessToken");
 
@@ -67,7 +67,7 @@ export function middleware(req: NextRequest) {
 }
 
 /**
- * Matcher: на які URL запускається middleware.
+ * Matcher: на які URL запускається proxy.
  *
  * Виключаємо:
  * - api/* — це бекенд proxy
