@@ -11,8 +11,10 @@
 //   У нас вони збігаються — тому без @@map.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider             = "prisma-client"
+  output               = "../src/generated/prisma"
+  moduleFormat         = "esm"
+  importFileExtension  = "ts"
 }
 
 datasource db {
