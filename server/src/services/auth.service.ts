@@ -312,7 +312,11 @@ export async function requestPasswordReset(email: string): Promise<void> {
     expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
   });
 
-  await sendPasswordResetEmail(user.email, user.name, rawToken);
+  // Fire-and-forget (як і у issueVerificationEmail) — щоб request
+  // не чекав на SMTP.
+  sendPasswordResetEmail(user.email, user.name, rawToken).catch((err) => {
+    logger.error({ err, userId: user.id, email: user.email }, "Failed to send password reset email");
+  });
 }
 
 /**
@@ -410,9 +414,15 @@ async function issueTokenPair(
 /**
  * Створює email verification token + шле лист.
  * Спільний код для register і resendVerification.
+ *
+ * Email шлеться async (fire-and-forget) — щоб register не чекав на SMTP.
+ * На Render free tier SMTP cold start ~5+ сек, разом з argon2 ~3 сек це
+ * виходить за 15-сек timeout proxy. Async зменшує до ~1 сек на register.
+ *
+ * Якщо email падає — логуємо, але юзер все одно зареєстрований і може
+ * натиснути "Resend verification email" пізніше.
  */
 async function issueVerificationEmail(userId: string, email: string, name: string): Promise<void> {
-  // Видаляємо попередні verification-токени цього юзера — лист має бути один.
   await emailRepo.deleteUserEmailTokens(userId, "EMAIL_VERIFICATION");
 
   const rawToken = generateEmailToken();
@@ -425,7 +435,10 @@ async function issueVerificationEmail(userId: string, email: string, name: strin
     expiresAt: new Date(Date.now() + VERIFICATION_TTL_MS),
   });
 
-  await sendVerificationEmail(email, name, rawToken);
+  // Fire-and-forget — НЕ await
+  sendVerificationEmail(email, name, rawToken).catch((err) => {
+    logger.error({ err, userId, email }, "Failed to send verification email");
+  });
 }
 
 /**

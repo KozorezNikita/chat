@@ -119,24 +119,33 @@ export function hashEmailToken(rawToken: string): string {
 
 /**
  * argon2id — OWASP-рекомендована для нових застосунків.
- * Дефолтні параметри пакета `argon2` вже сильні (memoryCost 64MB,
- * timeCost 3, parallelism 4) — у проді явно не переписуємо.
  *
- * Для NODE_ENV=test використовуємо мінімальні параметри
- * (~1мс vs ~100мс на hash). Це не зменшує безпеку проекту —
- * у проді ті самі дефолти. Це лише прискорює test runner
- * (50 тестів × 100мс = 5сек повільніше).
+ * Параметри:
+ * - dev/prod: OWASP 2024 minimum (19 MiB, 2 iterations, parallelism 1).
+ *   Defaults пакета `argon2` (64 MiB / 3 iter / 4 par) занадто важкі для
+ *   Render free tier (0.1 vCPU) — register займає 3+ сек.
+ * - test: мінімум (1 MiB / 2 iter / 1 par) — близько 1мс на hash.
+ *
+ * 19 MiB достатня сила проти offline-атак з GPU. Для пет-проекту з
+ * 100 юзерами це баланс security/UX.
  */
 const isTestEnv = process.env.NODE_ENV === "test";
 
 const TEST_ARGON2_OPTIONS = {
-  memoryCost: 1024,   // 1 MB замість 64 MB
-  timeCost: 2,        // мінімум дозволений argon2 пакетом
+  memoryCost: 1024,
+  timeCost: 2,
+  parallelism: 1,
+};
+
+const PROD_ARGON2_OPTIONS = {
+  memoryCost: 19456,  // 19 MiB (OWASP 2024 minimum)
+  timeCost: 2,
   parallelism: 1,
 };
 
 export async function hashPassword(plain: string): Promise<string> {
-  return await argon2.hash(plain, isTestEnv ? TEST_ARGON2_OPTIONS : undefined);
+  const options = isTestEnv ? TEST_ARGON2_OPTIONS : PROD_ARGON2_OPTIONS;
+  return await argon2.hash(plain, options);
 }
 
 /**
