@@ -35,7 +35,7 @@
    - **Runtime:** `Node`
    - **Build Command:**
      ```
-     npm install --include=dev && cd ../shared && npm install --include=dev && cd ../server && npx prisma generate && npm run build
+     cd ../shared && npm install --include=dev && npm run build && cd ../server && npm install --include=dev && npx prisma generate && npm run build
      ```
    - **Start Command:** `npm run start:migrate`
    - **Plan:** `Free`
@@ -80,7 +80,11 @@
 2. **Add New** → **Project** → Import свій chat-app.
 3. **Framework Preset:** Next.js (auto-detect).
 4. **Root Directory:** `client`.
-5. **Environment Variables** (Production):
+5. **Build & Development Settings** → **Override**:
+   - **Install Command:** `cd ../shared && npm install --include=dev && npm run build && cd ../client && npm install`
+   - **Build Command:** `npm run build` (default, не змінюй)
+
+6. **Environment Variables** (Production):
 
    ```
    NEXT_PUBLIC_API_URL=https://chat-yourname-api.onrender.com
@@ -89,8 +93,8 @@
 
    (БЕЗ trailing slash)
 
-6. **Deploy** → ~2-3 хв.
-7. Vercel дасть тобі URL типу `chat-yourname.vercel.app`.
+7. **Deploy** → ~2-3 хв.
+8. Vercel дасть тобі URL типу `chat-yourname.vercel.app`.
 
 ## 5. Зворотний зв'язок між Render і Vercel
 

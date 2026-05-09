@@ -28,10 +28,8 @@
         "./src/*"
       ],
       "@chat/shared": [
-        "../shared/src/index.ts"
-      ],
-      "@chat/shared/*": [
-        "../shared/src/*"
+        "../shared/src/index.ts",
+        "../shared/dist/index.d.ts"
       ]
     }
   },
