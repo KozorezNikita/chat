@@ -8,13 +8,18 @@ import { logger } from "../utils/logger.js";
  * Email service
  * ============================================
  *
- * Один nodemailer-transport, конфіг з env. У dev це Mailpit (порт 1025),
- * у prod — реальний SMTP (Resend/Postmark/SES). Жодних `if (env)` гілок —
- * усе керується змінними оточення.
+ * У dev — nodemailer SMTP до Mailpit (порт 1025).
+ * У prod — Resend HTTP API (Render free tier блокує SMTP-порти 25/465/587).
+ *
+ * Перемикання за env.SMTP_HOST:
+ *   - "smtp.resend.com" → HTTP API через fetch
+ *   - інше → nodemailer (Mailpit, або інший SMTP-провайдер)
  *
  * Шаблони inline (рядки нижче). Якщо колись будемо локалізувати або
- * додавати дизайн — переїдемо на mjml/react-email. Поки YAGNI.
+ * додавати дизайн — переїдемо на mjml/react-email.
  */
+
+const isResendHttp = env.SMTP_HOST === "smtp.resend.com";
 
 let transporter: Transporter | null = null;
 
@@ -29,7 +34,6 @@ function getTransporter(): Transporter {
   transporter = nodemailer.createTransport({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
-    // secure=true для портів 465; для Mailpit (1025) і більшості інших — false.
     secure: env.SMTP_PORT === 465,
     auth:
       env.SMTP_USER && env.SMTP_PASS
@@ -41,24 +45,58 @@ function getTransporter(): Transporter {
 }
 
 /**
- * Низькорівнева функція. Підіймає nodemailer, шле, логує.
+ * Resend HTTP API через fetch.
  *
- * Чому НЕ throw на failure: лист не дійшов — це не привід падати з 500.
- * Юзер може ще раз натиснути "Resend". Натомість логуємо як warn —
- * ops-команда розбиратиметься.
+ * Чому HTTP а не SMTP у проді: Render free tier блокує outbound TCP
+ * на mail-порти 25/465/587. HTTPS (443) працює завжди.
  *
- * Для критичних випадків (наприклад, якщо ми б колись слали 2FA-коди)
- * треба було б throw. Для verify/reset — не критично.
+ * SMTP_PASS у наших env — це Resend API key (re_...).
+ */
+async function sendViaResendHttp(to: string, subject: string, html: string): Promise<void> {
+  const apiKey = env.SMTP_PASS;
+  if (!apiKey) {
+    throw new Error("SMTP_PASS (Resend API key) not configured");
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: env.EMAIL_FROM,
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Resend API ${response.status}: ${errorBody}`);
+  }
+}
+
+/**
+ * Низькорівнева функція. Шле через HTTP (Resend) або SMTP (інші).
+ *
+ * Не throw на failure — лист не дійшов це не привід падати з 500.
+ * Юзер може ще раз натиснути "Resend". Логуємо як warn.
  */
 async function sendMail(to: string, subject: string, html: string): Promise<void> {
   try {
-    await getTransporter().sendMail({
-      from: env.EMAIL_FROM,
-      to,
-      subject,
-      html,
-    });
-    logger.info({ to, subject }, "Email sent");
+    if (isResendHttp) {
+      await sendViaResendHttp(to, subject, html);
+    } else {
+      await getTransporter().sendMail({
+        from: env.EMAIL_FROM,
+        to,
+        subject,
+        html,
+      });
+    }
+    logger.info({ to, subject, transport: isResendHttp ? "http" : "smtp" }, "Email sent");
   } catch (err) {
     logger.warn({ err, to, subject }, "Email send failed");
   }
