@@ -36,7 +36,15 @@ export function broadcastNewMessage(
   clientId?: string,
 ): void {
   safeBroadcast("message:new", () => {
-    getIO().to(`chat:${chatId}`).emit("message:new", { chatId, message, clientId });
+    // exactOptionalPropertyTypes: будуємо payload без поля clientId
+    // якщо його не передано (undefined ≠ "поле відсутнє").
+    const payload: { chatId: string; message: Message; clientId?: string } = {
+      chatId,
+      message,
+    };
+    if (clientId !== undefined) payload.clientId = clientId;
+
+    getIO().to(`chat:${chatId}`).emit("message:new", payload);
     broadcastLogger.debug({ chatId, messageId: message.id }, "message:new broadcasted");
   });
 }

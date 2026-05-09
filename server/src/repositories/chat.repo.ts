@@ -163,9 +163,16 @@ interface UpdateGroupInput {
 }
 
 export async function updateGroupChat(chatId: string, data: UpdateGroupInput) {
+  // Будуємо update-об'єкт ТІЛЬКИ з полів які реально передані.
+  // Це потрібно через exactOptionalPropertyTypes — Prisma не приймає
+  // явний undefined у полях, тільки відсутність поля.
+  const updateData: { name?: string; avatarUrl?: string | null } = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.avatarUrl !== undefined) updateData.avatarUrl = data.avatarUrl;
+
   return prisma.chat.update({
     where: { id: chatId },
-    data,
+    data: updateData,
     include: FULL_CHAT_INCLUDE,
   });
 }
