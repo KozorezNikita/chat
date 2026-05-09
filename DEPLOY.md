@@ -33,7 +33,10 @@
    - **Branch:** `main`
    - **Root Directory:** `server`
    - **Runtime:** `Node`
-   - **Build Command:** `npm install && npx prisma generate && npm run build`
+   - **Build Command:**
+     ```
+     npm install --include=dev && cd ../shared && npm install --include=dev && cd ../server && npx prisma generate && npm run build
+     ```
    - **Start Command:** `npm run start:migrate`
    - **Plan:** `Free`
 
