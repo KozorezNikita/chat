@@ -1,7 +1,20 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const config: NextConfig = {
   reactStrictMode: true,
+
+  // Папка shared/ лежить вище за client/. Для multi-package monorepo-подібного
+  // setup Next.js треба явно вказати root з якого включати файли в trace.
+  // process.cwd() == client/ коли запускається `next build` з cwd=client.
+  // На Vercel cwd=client (через rootDirectory: client). Resolve("..") = chat/.
+  outputFileTracingRoot: path.resolve(process.cwd(), ".."),
+
+  // Включаємо shared/dist у трейс build-у. Без цього Vercel не копіює
+  // shared/ файли в deployment, і runtime не знаходить @chat/shared.
+  outputFileTracingIncludes: {
+    "/**/*": ["../shared/dist/**/*"],
+  },
 
   // shared/ — це звичайна папка з .ts файлами, які ми резолвимо через
   // path-alias @chat/shared. Next.js має знати що їх треба транспілювати,
