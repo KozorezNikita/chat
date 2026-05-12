@@ -8,6 +8,7 @@ import { useMe } from "@/hooks/use-auth";
 import { ChatHeader } from "@/components/chats/chat-header";
 import { MessageList } from "@/components/chats/messages/message-list";
 import { MessageInput } from "@/components/chats/messages/message-input";
+import { TypingIndicator } from "@/components/chats/messages/typing-indicator";
 
 interface ChatDetailPageProps {
   params: Promise<{ chatId: string }>;
@@ -56,6 +57,7 @@ export default function ChatDetailPage({ params }: ChatDetailPageProps) {
     <>
       <ChatHeader chat={data.chat} user={meData.user} />
       <MessageList chatId={chatId} currentUserId={meData.user.id} />
+      <TypingIndicator chatId={chatId} />
       <MessageInput chatId={chatId} user={meData.user} />
     </>
   );

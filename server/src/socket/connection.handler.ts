@@ -7,6 +7,8 @@ import type {
 } from "@chat/shared";
 
 import * as chatRepo from "../repositories/chat.repo.js";
+import * as presenceService from "../services/presence.service.js";
+import { setupEventHandlers } from "./events.handler.js";
 import { socketLogger } from "./logger.js";
 
 export type AppSocket = Socket<
@@ -28,40 +30,35 @@ export type AppServer = Server<
  * Connection handler
  * ============================================
  *
- * Викликається коли socket пройшов handshake auth (auth middleware вже спрацював,
- * socket.data.userId встановлений).
+ * Що робимо при connect:
+ *  - Join у user-room і у всі chat-rooms юзера
+ *  - Track presence (SADD у Redis)
+ *  - Реєструємо listeners для client emits (typing)
  *
- * Що робимо:
- *  - Join у персональний room user:${userId}
- *  - Завантажуємо активні memberships юзера → join у chat:${chatId} для кожного
- *  - Слухаємо disconnect для логування
- *
- * Чому join при connect:
- *  - При broadcast `io.to('chat:abc').emit(...)` Socket.io знайде всіх юзерів
- *    у цьому room без перевірки membership на кожен emit
- *  - Безпека: ми додаємо в room тільки тих хто реально member у БД
- *  - Add member runtime — через окремий event 'chat:member-added' (Iter 3.2)
+ * При disconnect:
+ *  - Track presence disconnect (SREM, stamp lastSeenAt якщо last socket)
+ *  - Socket.io автоматично leave rooms
  */
 export function setupConnectionHandler(io: AppServer): void {
   io.on("connection", async (socket: AppSocket) => {
     const userId = socket.data.userId;
 
     try {
-      // Persona-room для user-targeted events (auth:expired, chat:member-added для нових)
       socket.join(`user:${userId}`);
 
-      // Усі активні чати
       const memberships = await chatRepo.findActiveMembershipsByUser(userId);
       for (const m of memberships) {
         socket.join(`chat:${m.chatId}`);
       }
 
+      // Track presence у Redis (graceful no-op якщо Redis недоступний)
+      await presenceService.trackConnect(userId, socket.id);
+
+      // Реєструємо listeners на client emits (typing:start/stop)
+      setupEventHandlers(socket);
+
       socketLogger.info(
-        {
-          socketId: socket.id,
-          userId,
-          chatCount: memberships.length,
-        },
+        { socketId: socket.id, userId, chatCount: memberships.length },
         "Socket connected",
       );
     } catch (err) {
@@ -70,11 +67,9 @@ export function setupConnectionHandler(io: AppServer): void {
       return;
     }
 
-    socket.on("disconnect", (reason) => {
-      socketLogger.info(
-        { socketId: socket.id, userId, reason },
-        "Socket disconnected",
-      );
+    socket.on("disconnect", async (reason) => {
+      await presenceService.trackDisconnect(userId, socket.id);
+      socketLogger.info({ socketId: socket.id, userId, reason }, "Socket disconnected");
     });
   });
 }

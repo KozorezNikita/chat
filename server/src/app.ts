@@ -12,6 +12,7 @@ import { authRouter } from "./routes/auth.routes.js";
 import { chatRouter } from "./routes/chat.routes.js";
 import { userRouter } from "./routes/user.routes.js";
 import { messageRouter } from "./routes/message.routes.js";
+import { presenceRouter } from "./routes/presence.routes.js";
 
 /**
  * Створює і конфігурує Express app — БЕЗ виклику listen.
@@ -63,6 +64,7 @@ export function createApp(): Express {
   app.use("/api/v1/chats", chatRouter);
   app.use("/api/v1/users", userRouter);
   app.use("/api/v1/messages", messageRouter);
+  app.use("/api/v1/presence", presenceRouter);
 
   // 404 для усього що не зматчилось.
   app.use(notFoundHandler);

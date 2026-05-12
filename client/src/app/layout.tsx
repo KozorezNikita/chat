@@ -5,6 +5,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { QueryProvider } from "@/lib/query-client";
 import { SocketProvider } from "@/providers/socket-provider";
 import { SocketEventsListener } from "@/providers/socket-events-listener";
+import { TypingProvider } from "@/providers/typing-provider";
+import { PresenceListener } from "@/providers/presence-listener";
 import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
@@ -42,8 +44,11 @@ export default function RootLayout({
           <QueryProvider>
             <SocketProvider>
               <SocketEventsListener />
-              {children}
-              <Toaster />
+              <PresenceListener />
+              <TypingProvider>
+                {children}
+                <Toaster />
+              </TypingProvider>
             </SocketProvider>
           </QueryProvider>
         </ThemeProvider>

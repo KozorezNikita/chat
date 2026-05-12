@@ -4,6 +4,7 @@ import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { logger } from "./utils/logger.js";
 import { prisma } from "./db/prisma.js";
+import { disconnectRedis } from "./db/redis.js";
 import { initSocket } from "./socket/index.js";
 
 /**
@@ -58,6 +59,7 @@ async function bootstrap() {
       });
 
       await prisma.$disconnect();
+      await disconnectRedis();
 
       logger.info("Shutdown complete");
       clearTimeout(forceExit);

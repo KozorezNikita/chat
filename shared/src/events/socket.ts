@@ -39,11 +39,21 @@ import type { Message } from "../dto/message.js";
 // ============================================
 // CLIENT → SERVER
 // ============================================
-// У Iter 3 порожній — клієнт нічого не emit-ить.
-// Заповниться у Iter 4 (typing:start/stop).
+// У Iter 3 порожньо. У Iter 4 додаємо typing.
 
 export interface ClientToServerEvents {
-  // Reserved for Iter 4+
+  /**
+   * Юзер набирає у чаті. Шлеться раз на 2 сек поки він пише.
+   * Server валідує membership + per-emit auth, broadcast у room.
+   * Throttle: max 1 emit per second per socket.
+   */
+  "typing:start": (payload: { chatId: string }) => void;
+
+  /**
+   * Юзер припинив набирати (натиснув Enter, очистив поле, або 3+ сек тиші).
+   * Server broadcast у room.
+   */
+  "typing:stop": (payload: { chatId: string }) => void;
 }
 
 // ============================================
@@ -112,6 +122,19 @@ export interface ServerToClientEvents {
    * мати свіжі cookies після refresh з іншого таб-у.
    */
   "auth:expired": () => void;
+
+  /**
+   * Юзер X почав набирати у чаті Y. Broadcast у `chat:${chatId}` крім автора.
+   * Отримувач показує "X пише…" UI з 5-сек timeout (на випадок якщо typing:stop
+   * не прийде, наприклад мережа впала).
+   */
+  "typing:start": (payload: { chatId: string; userId: string }) => void;
+
+  /**
+   * Юзер X перестав набирати у чаті Y. Broadcast у `chat:${chatId}` крім автора.
+   * Отримувач прибирає indicator одразу.
+   */
+  "typing:stop": (payload: { chatId: string; userId: string }) => void;
 }
 
 // ============================================

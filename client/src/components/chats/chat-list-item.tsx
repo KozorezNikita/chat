@@ -13,6 +13,7 @@ import {
   getLastMessagePreview,
   formatLastMessageTime,
 } from "@/lib/utils/chat-utils";
+import { OnlineDot } from "@/components/chats/sidebar/online-dot";
 
 interface ChatListItemProps {
   chat: Chat;
@@ -28,6 +29,11 @@ export function ChatListItem({ chat, currentUserId }: ChatListItemProps) {
   const preview = getLastMessagePreview(chat, currentUserId);
   const time = chat.lastMessage ? formatLastMessageTime(chat.lastMessage.createdAt) : null;
   const isGroup = chat.type === "GROUP";
+
+  // Для DM — знайти іншого учасника щоб показати online dot
+  const otherUserId = !isGroup
+    ? chat.members.find((m) => m.userId !== currentUserId)?.userId
+    : undefined;
 
   return (
     <Link
@@ -57,6 +63,7 @@ export function ChatListItem({ chat, currentUserId }: ChatListItemProps) {
             {isGroup ? <Users className="h-5 w-5" /> : getInitials(title)}
           </div>
         )}
+        {otherUserId && <OnlineDot userId={otherUserId} />}
       </div>
 
       {/* Content */}

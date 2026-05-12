@@ -7,6 +7,7 @@ import type { MeUser } from "@chat/shared";
 
 import { Button } from "@/components/ui/button";
 import { useSendMessage } from "@/hooks/use-messages";
+import { useTyping } from "@/hooks/use-typing";
 import { createOptimisticMessage } from "@/lib/utils/message-utils";
 import { getErrorMessage } from "@/lib/api/errors";
 
@@ -29,6 +30,7 @@ export function MessageInput({ chatId, user }: MessageInputProps) {
   const [content, setContent] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendMessage = useSendMessage(chatId);
+  const typing = useTyping(chatId);
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -55,6 +57,9 @@ export function MessageInput({ chatId, user }: MessageInputProps) {
       textareaRef.current.style.height = "auto";
     }
 
+    // Юзер натиснув send — точно перестав набирати
+    typing.onSend();
+
     try {
       await sendMessage.mutateAsync({
         dto: { clientId, content: trimmed },
@@ -69,9 +74,18 @@ export function MessageInput({ chatId, user }: MessageInputProps) {
 
   // Auto-resize textarea при наборі
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setContent(e.target.value);
+    const newValue = e.target.value;
+    setContent(newValue);
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
+
+    // Typing logic
+    if (newValue.length > 0) {
+      typing.onKeyPress();
+    } else {
+      // Поле повністю очищено (наприклад Backspace до кінця) — миттєвий stop
+      typing.onClear();
+    }
   }
 
   return (
