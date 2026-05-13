@@ -14,7 +14,11 @@ import type { ValidatedRequest } from "../middlewares/validate.js";
 
 export async function getMessages(req: Request, res: Response): Promise<void> {
   const { query } = (req as ValidatedRequest<unknown, unknown, GetMessagesQuery>).validated;
-  const page = await messageService.getMessages(req.chatMember.chatId, query);
+  const page = await messageService.getMessages(
+    req.chatMember.chatId,
+    req.userId,
+    query,
+  );
   res.json(page);
 }
 

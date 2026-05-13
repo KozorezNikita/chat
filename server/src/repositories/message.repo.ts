@@ -20,6 +20,12 @@ const FULL_MESSAGE_INCLUDE = {
       avatarUrl: true,
     },
   },
+  reactions: {
+    select: {
+      emoji: true,
+      userId: true,
+    },
+  },
 } as const;
 
 interface CreateMessageInput {

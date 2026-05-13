@@ -135,6 +135,36 @@ export interface ServerToClientEvents {
    * Отримувач прибирає indicator одразу.
    */
   "typing:stop": (payload: { chatId: string; userId: string }) => void;
+
+  /**
+   * Reaction додано / видалено на message-і. Broadcast усім member-ам у `chat:${chatId}`.
+   *
+   * Передаємо повний список reactions після зміни (емодзі + userId-и) —
+   * клієнт локально перерахує групи з `reactedByMe` для свого юзера.
+   *
+   * Чому повний список, а не дельта: простіше серверу не вести state;
+   * payload малий (~6 emoji × 5 users у середньому).
+   */
+  "reaction:updated": (payload: {
+    chatId: string;
+    messageId: string;
+    reactions: { emoji: string; userId: string }[];
+  }) => void;
+
+  /**
+   * Юзер X прочитав повідомлення до messageId Y у чаті Z.
+   * Broadcast усім member-ам — кожен клієнт оновлює свій локальний кеш
+   * `chat.members[].lastReadMessageId`.
+   *
+   * UI використовує це для:
+   *  - DM: показати ✓ біля власних повідомлень коли інший прочитав
+   *  - Group: показати "Прочитано (3/5)" під власним останнім повідомленням
+   */
+  "read:updated": (payload: {
+    chatId: string;
+    userId: string;
+    lastReadMessageId: string;
+  }) => void;
 }
 
 // ============================================

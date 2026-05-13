@@ -168,27 +168,40 @@ export function MessageList({ chatId, currentUserId }: MessageListProps) {
             </div>
           )}
 
-          {messages.map((message, idx) => {
-            const previous = idx > 0 ? messages[idx - 1]! : null;
-            const next = idx < messages.length - 1 ? messages[idx + 1] : null;
+          {(() => {
+            // Знаходимо індекс останнього власного повідомлення (не deleted).
+            // Раз обчислюємо для всього циклу.
+            let lastOwnIdx = -1;
+            for (let i = messages.length - 1; i >= 0; i--) {
+              if (messages[i]!.author.id === currentUserId && messages[i]!.deletedAt === null) {
+                lastOwnIdx = i;
+                break;
+              }
+            }
+            return messages.map((message, idx) => {
+              const previous = idx > 0 ? messages[idx - 1]! : null;
+              const next = idx < messages.length - 1 ? messages[idx + 1] : null;
 
-            const isGrouped = shouldGroupMessages(message, previous);
-            const showTime = !next || !shouldGroupMessages(next, message);
+              const isGrouped = shouldGroupMessages(message, previous);
+              const showTime = !next || !shouldGroupMessages(next, message);
+              const isLastOwn = idx === lastOwnIdx;
 
-            return (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                isOwn={message.author.id === currentUserId}
-                isGrouped={isGrouped}
-                showTime={showTime}
-                chatId={chatId}
-                isEditing={editingId === message.id}
-                onStartEdit={() => setEditingId(message.id)}
-                onStopEdit={() => setEditingId(null)}
-              />
-            );
-          })}
+              return (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  isOwn={message.author.id === currentUserId}
+                  isGrouped={isGrouped}
+                  showTime={showTime}
+                  isLastOwn={isLastOwn}
+                  chatId={chatId}
+                  isEditing={editingId === message.id}
+                  onStartEdit={() => setEditingId(message.id)}
+                  onStopEdit={() => setEditingId(null)}
+                />
+              );
+            });
+          })()}
 
           <div ref={bottomAnchorRef} className="h-1" />
         </div>

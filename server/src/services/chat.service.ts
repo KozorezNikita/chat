@@ -21,6 +21,7 @@ import {
   broadcastMemberAdded,
   broadcastMemberRemoved,
   broadcastDirectChatCreated,
+  broadcastReadUpdated,
 } from "../socket/broadcast.js";
 
 /**
@@ -395,5 +396,10 @@ export async function markChatAsRead(
   userId: string,
   messageId: string,
 ): Promise<void> {
-  await chatRepo.updateLastRead(chatId, userId, messageId);
+  const result = await chatRepo.updateLastRead(chatId, userId, messageId);
+  // Broadcast тільки якщо реально оновили — інакше зайвий event
+  // (наприклад коли messageId менший за існуючий lastReadMessageId).
+  if (result.count > 0) {
+    broadcastReadUpdated(chatId, userId, messageId);
+  }
 }

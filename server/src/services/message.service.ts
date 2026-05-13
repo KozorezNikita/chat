@@ -53,7 +53,7 @@ export async function sendMessage(
     parentMessageId: undefined,
   });
 
-  const messageDto = mapMessageToDto(message as MessageWithAuthor);
+  const messageDto = mapMessageToDto(message as MessageWithAuthor, authorId);
 
   // Broadcast усім members chat-room. Передаємо clientId — автор замінить
   // свою optimistic message у кеші на серверний (без дублів).
@@ -106,7 +106,7 @@ export async function editMessage(
     content: dto.content,
   });
 
-  const messageDto = mapMessageToDto(updated as MessageWithAuthor);
+  const messageDto = mapMessageToDto(updated as MessageWithAuthor, userId);
   broadcastEditedMessage(message.chatId, messageDto);
 
   return messageDto;
@@ -136,11 +136,11 @@ export async function deleteMessage(messageId: string, userId: string): Promise<
 
   // Якщо вже deleted — повертаємо як є (idempotent), broadcast не повторюємо.
   if (message.deletedAt !== null) {
-    return mapMessageToDto(message as MessageWithAuthor);
+    return mapMessageToDto(message as MessageWithAuthor, userId);
   }
 
   const deleted = await messageRepo.softDeleteMessage(messageId);
-  const messageDto = mapMessageToDto(deleted as MessageWithAuthor);
+  const messageDto = mapMessageToDto(deleted as MessageWithAuthor, userId);
   broadcastDeletedMessage(message.chatId, messageDto);
 
   return messageDto;
@@ -155,9 +155,12 @@ export async function deleteMessage(messageId: string, userId: string): Promise<
  *
  * Повертає від нових до старих (id DESC). Клієнт реверсує для
  * рендера у chat-bubbles UI.
+ *
+ * currentUserId потрібен для обчислення `reactedByMe` у кожному message-у.
  */
 export async function getMessages(
   chatId: string,
+  currentUserId: string,
   query: GetMessagesQuery,
 ): Promise<MessagePage> {
   const { items, nextCursor } = await messageRepo.listMessagesPaged({
@@ -167,7 +170,7 @@ export async function getMessages(
   });
 
   return {
-    items: items.map((m) => mapMessageToDto(m as MessageWithAuthor)),
+    items: items.map((m) => mapMessageToDto(m as MessageWithAuthor, currentUserId)),
     nextCursor,
   };
 }

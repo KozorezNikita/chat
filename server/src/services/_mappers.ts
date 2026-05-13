@@ -113,6 +113,7 @@ function mapMemberToDto(m: ChatWithMembers["members"][number]): ChatMemberDto {
     role: m.role,
     joinedAt: m.joinedAt.toISOString(),
     leftAt: m.leftAt ? m.leftAt.toISOString() : null,
+    lastReadMessageId: m.lastReadMessageId,
     user: {
       id: m.user.id,
       name: m.user.name,
@@ -159,6 +160,7 @@ export interface MessageWithAuthor {
     username: string | null;
     avatarUrl: string | null;
   };
+  reactions?: { emoji: string; userId: string }[];
 }
 
 /**
@@ -170,7 +172,36 @@ export interface MessageWithAuthor {
  *
  * reactions і replyCount поки що пусті — заповнимо в Ітераціях 5 і 6.
  */
-export function mapMessageToDto(message: MessageWithAuthor): Message {
+/**
+ * reactedByMe рахуємо тут — на основі currentUserId з context-у запиту.
+ * Якщо currentUserId не передано — reactedByMe скрізь false (наприклад
+ * для не-auth read-only endpoint-ів, яких у нас наразі немає).
+ */
+function groupReactions(
+  reactions: { emoji: string; userId: string }[],
+  currentUserId: string | undefined,
+): { emoji: string; count: number; userIds: string[]; reactedByMe: boolean }[] {
+  const map = new Map<string, Set<string>>();
+  for (const r of reactions) {
+    let set = map.get(r.emoji);
+    if (!set) {
+      set = new Set();
+      map.set(r.emoji, set);
+    }
+    set.add(r.userId);
+  }
+  return Array.from(map.entries()).map(([emoji, userIds]) => ({
+    emoji,
+    count: userIds.size,
+    userIds: Array.from(userIds),
+    reactedByMe: currentUserId ? userIds.has(currentUserId) : false,
+  }));
+}
+
+export function mapMessageToDto(
+  message: MessageWithAuthor,
+  currentUserId?: string,
+): Message {
   const isDeleted = message.deletedAt !== null;
 
   return {
@@ -185,7 +216,7 @@ export function mapMessageToDto(message: MessageWithAuthor): Message {
     content: isDeleted ? "" : message.content,
     parentMessageId: message.parentMessageId,
     replyCount: 0,
-    reactions: [],
+    reactions: groupReactions(message.reactions ?? [], currentUserId),
     editedAt: message.editedAt ? message.editedAt.toISOString() : null,
     deletedAt: message.deletedAt ? message.deletedAt.toISOString() : null,
     createdAt: message.createdAt.toISOString(),

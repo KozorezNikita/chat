@@ -7,6 +7,7 @@ import type { Chat, ChatMember, Message, MessagePage } from "@chat/shared";
 
 import { useSocket } from "@/providers/socket-provider";
 import { useMe } from "@/hooks/use-auth";
+import { groupReactions } from "@/lib/utils/reactions";
 
 /**
  * ============================================
@@ -146,6 +147,51 @@ export function useSocketEvents() {
       qc.invalidateQueries({ queryKey: ["chats"] });
     }
 
+    function handleReactionUpdated(payload: {
+      chatId: string;
+      messageId: string;
+      reactions: { emoji: string; userId: string }[];
+    }) {
+      const { chatId, messageId, reactions } = payload;
+      qc.setQueryData<MessagesQueryData>(["messages", chatId], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            items: page.items.map((m) =>
+              m.id === messageId
+                ? { ...m, reactions: groupReactions(reactions, currentUserId!) }
+                : m,
+            ),
+          })),
+        };
+      });
+    }
+
+    function handleReadUpdated(payload: {
+      chatId: string;
+      userId: string;
+      lastReadMessageId: string;
+    }) {
+      const { chatId, userId, lastReadMessageId } = payload;
+      // Власні events ігноруємо — markAsRead REST onSuccess уже оновив локально
+      if (userId === currentUserId) return;
+
+      // Оновлюємо chat.members[userId].lastReadMessageId у кеші ['chats', chatId]
+      qc.setQueryData<{ chat: Chat }>(["chats", chatId], (old) => {
+        if (!old) return old;
+        return {
+          chat: {
+            ...old.chat,
+            members: old.chat.members.map((m) =>
+              m.userId === userId ? { ...m, lastReadMessageId } : m,
+            ),
+          },
+        };
+      });
+    }
+
     // ============================================
     // Chat lifecycle
     // ============================================
@@ -209,6 +255,8 @@ export function useSocketEvents() {
     socket.on("message:new", handleMessageNew);
     socket.on("message:edited", handleMessageEdited);
     socket.on("message:deleted", handleMessageDeleted);
+    socket.on("reaction:updated", handleReactionUpdated);
+    socket.on("read:updated", handleReadUpdated);
     socket.on("chat:updated", handleChatUpdated);
     socket.on("chat:member-added", handleMemberAdded);
     socket.on("chat:member-removed", handleMemberRemoved);
@@ -221,6 +269,8 @@ export function useSocketEvents() {
       socket.off("message:new", handleMessageNew);
       socket.off("message:edited", handleMessageEdited);
       socket.off("message:deleted", handleMessageDeleted);
+      socket.off("reaction:updated", handleReactionUpdated);
+      socket.off("read:updated", handleReadUpdated);
       socket.off("chat:updated", handleChatUpdated);
       socket.off("chat:member-added", handleMemberAdded);
       socket.off("chat:member-removed", handleMemberRemoved);

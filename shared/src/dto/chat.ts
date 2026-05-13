@@ -20,6 +20,8 @@ export const chatMemberSchema = z.object({
   role: memberRoleSchema,
   joinedAt: z.string().datetime(),
   leftAt: z.string().datetime().nullable(),
+  /** Останнє прочитане повідомлення цим юзером. Для read-receipts UI. */
+  lastReadMessageId: z.string().nullable(),
 });
 
 export type ChatMember = z.infer<typeof chatMemberSchema>;

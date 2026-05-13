@@ -63,6 +63,48 @@ export function broadcastDeletedMessage(chatId: string, message: Message): void 
   });
 }
 
+/**
+ * Reaction додано / видалено — broadcast усім member-ам.
+ * Payload — повний список (emoji + userId) поточних reactions після зміни.
+ * Клієнт перерахує групи з reactedByMe для свого юзера.
+ */
+export function broadcastReactionUpdated(
+  chatId: string,
+  messageId: string,
+  reactions: { emoji: string; userId: string }[],
+): void {
+  safeBroadcast("reaction:updated", () => {
+    getIO().to(`chat:${chatId}`).emit("reaction:updated", {
+      chatId,
+      messageId,
+      reactions,
+    });
+    broadcastLogger.debug({ chatId, messageId, count: reactions.length }, "reaction:updated broadcasted");
+  });
+}
+
+/**
+ * Read receipt оновлено — broadcast усім member-ам.
+ * Клієнти оновлюють локально `chat.members[].lastReadMessageId`.
+ *
+ * Сам автор події теж отримує (його сокет у тому ж room), але клієнт
+ * це ігнорує через `payload.userId === currentUserId`.
+ */
+export function broadcastReadUpdated(
+  chatId: string,
+  userId: string,
+  lastReadMessageId: string,
+): void {
+  safeBroadcast("read:updated", () => {
+    getIO().to(`chat:${chatId}`).emit("read:updated", {
+      chatId,
+      userId,
+      lastReadMessageId,
+    });
+    broadcastLogger.debug({ chatId, userId, lastReadMessageId }, "read:updated broadcasted");
+  });
+}
+
 // ============================================
 // Chat lifecycle
 // ============================================

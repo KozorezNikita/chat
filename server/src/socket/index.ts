@@ -77,3 +77,11 @@ export function getIO(): AppServer {
   }
   return ioInstance;
 }
+
+/**
+ * Reset singleton — для тестів, що створюють новий сервер кілька разів.
+ * НЕ використовувати у production-коді.
+ */
+export function _resetIOForTests(): void {
+  ioInstance = null;
+}
