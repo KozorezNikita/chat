@@ -322,6 +322,7 @@ export async function addMember(
     role: "MEMBER",
     joinedAt: new Date().toISOString(),
     leftAt: null,
+    lastReadMessageId: null,
   });
 
   return newMemberDto;
