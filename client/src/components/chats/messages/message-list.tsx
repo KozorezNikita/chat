@@ -40,6 +40,28 @@ export function MessageList({ chatId, currentUserId }: MessageListProps) {
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [flashMessageId, setFlashMessageId] = useState<string | null>(null);
+
+  /**
+   * Scroll-to-parent — клік на mini-bubble parent-preview.
+   * Шукає DOM-вузол по id="message-{parentId}", scroll-ить + flash 2 сек.
+   * Якщо parent не у DOM (не paginated назад) — toast.
+   */
+  function handleScrollToParent(parentId: string) {
+    const el = document.getElementById(`message-${parentId}`);
+    if (!el) {
+      // toast імпортуємо лише коли потрібно — динамічний import щоб не тягнути зайве
+      import("sonner").then(({ toast }) => {
+        toast("Повідомлення не у поточному перегляді", {
+          description: "Прокрутіть вгору щоб завантажити старіші повідомлення",
+        });
+      });
+      return;
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlashMessageId(parentId);
+    setTimeout(() => setFlashMessageId(null), 2000);
+  }
   const previousMessagesLengthRef = useRef(0);
   const previousLastIdRef = useRef<string | null>(null);
 
@@ -194,10 +216,12 @@ export function MessageList({ chatId, currentUserId }: MessageListProps) {
                   isGrouped={isGrouped}
                   showTime={showTime}
                   isLastOwn={isLastOwn}
+                  isFlashing={flashMessageId === message.id}
                   chatId={chatId}
                   isEditing={editingId === message.id}
                   onStartEdit={() => setEditingId(message.id)}
                   onStopEdit={() => setEditingId(null)}
+                  onScrollToParent={handleScrollToParent}
                 />
               );
             });

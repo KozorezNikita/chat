@@ -26,6 +26,15 @@ const FULL_MESSAGE_INCLUDE = {
       userId: true,
     },
   },
+  parentMessage: {
+    select: {
+      id: true,
+      content: true,
+      deletedAt: true,
+      chatId: true,
+      author: { select: { name: true } },
+    },
+  },
 } as const;
 
 interface CreateMessageInput {

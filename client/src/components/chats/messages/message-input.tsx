@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import { Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { MeUser } from "@chat/shared";
@@ -8,8 +8,10 @@ import type { MeUser } from "@chat/shared";
 import { Button } from "@/components/ui/button";
 import { useSendMessage } from "@/hooks/use-messages";
 import { useTyping } from "@/hooks/use-typing";
+import { useReply } from "@/providers/reply-provider";
 import { createOptimisticMessage } from "@/lib/utils/message-utils";
 import { getErrorMessage } from "@/lib/api/errors";
+import { ReplyBanner } from "./reply-banner";
 
 interface MessageInputProps {
   chatId: string;
@@ -22,6 +24,7 @@ interface MessageInputProps {
  * Keyboard:
  *  - Enter → send
  *  - Shift+Enter → newline
+ *  - Escape → скасувати reply (якщо активний)
  *
  * Optimistic UI: одразу додаємо повідомлення у кеш через useSendMessage.
  * Помилка → toast + rollback (хук сам це робить через onError).
@@ -31,11 +34,24 @@ export function MessageInput({ chatId, user }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendMessage = useSendMessage(chatId);
   const typing = useTyping(chatId);
+  const { replyingTo, setReplyingTo } = useReply();
+
+  // Auto-focus textarea коли юзер вибрав reply target
+  useEffect(() => {
+    if (replyingTo) {
+      textareaRef.current?.focus();
+    }
+  }, [replyingTo]);
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+      return;
+    }
+    if (e.key === "Escape" && replyingTo) {
+      e.preventDefault();
+      setReplyingTo(null);
     }
   }
 
@@ -44,12 +60,21 @@ export function MessageInput({ chatId, user }: MessageInputProps) {
     if (!trimmed || sendMessage.isPending) return;
 
     const clientId = crypto.randomUUID();
-    const optimistic = createOptimisticMessage(clientId, chatId, trimmed, {
-      id: user.id,
-      name: user.name,
-      username: user.username,
-      avatarUrl: user.avatarUrl,
-    });
+    const parentMessageId = replyingTo?.id;
+    const parentPreview = replyingTo;
+
+    const optimistic = createOptimisticMessage(
+      clientId,
+      chatId,
+      trimmed,
+      {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+      },
+      parentPreview,
+    );
 
     setContent("");
     // Reset textarea висоту після очищення
@@ -57,12 +82,19 @@ export function MessageInput({ chatId, user }: MessageInputProps) {
       textareaRef.current.style.height = "auto";
     }
 
+    // Скидаємо reply state одразу — UX-краще ніж після response
+    setReplyingTo(null);
+
     // Юзер натиснув send — точно перестав набирати
     typing.onSend();
 
     try {
       await sendMessage.mutateAsync({
-        dto: { clientId, content: trimmed },
+        dto: {
+          clientId,
+          content: trimmed,
+          ...(parentMessageId ? { parentMessageId } : {}),
+        },
         optimisticMessage: optimistic,
       });
     } catch (err) {
@@ -89,32 +121,35 @@ export function MessageInput({ chatId, user }: MessageInputProps) {
   }
 
   return (
-    <div className="border-t border-border bg-background/60 p-3 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-3xl items-end gap-2">
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Напишіть повідомлення..."
-          rows={1}
-          disabled={sendMessage.isPending}
-          className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-          style={{ maxHeight: "200px" }}
-        />
-        <Button
-          variant="sunset"
-          size="icon"
-          onClick={handleSend}
-          disabled={!content.trim() || sendMessage.isPending}
-          aria-label="Надіслати"
-        >
-          {sendMessage.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-        </Button>
+    <div className="border-t border-border bg-background/60 backdrop-blur-sm">
+      <ReplyBanner />
+      <div className="p-3">
+        <div className="mx-auto flex max-w-3xl items-end gap-2">
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={replyingTo ? "Напишіть відповідь..." : "Напишіть повідомлення..."}
+            rows={1}
+            disabled={sendMessage.isPending}
+            className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            style={{ maxHeight: "200px" }}
+          />
+          <Button
+            variant="sunset"
+            size="icon"
+            onClick={handleSend}
+            disabled={!content.trim() || sendMessage.isPending}
+            aria-label="Надіслати"
+          >
+            {sendMessage.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );

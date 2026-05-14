@@ -1,15 +1,18 @@
 "use client";
 
 import type { Message } from "@chat/shared";
+import { Reply } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/utils/chat-utils";
 import { formatMessageTime } from "@/lib/utils/message-utils";
+import { useReply } from "@/providers/reply-provider";
 import { MessageActions } from "./message-actions";
 import { MessageEditForm } from "./message-edit-form";
 import { ReactionPicker } from "./reaction-picker";
 import { ReactionBar } from "./reaction-bar";
 import { ReadReceipt } from "./read-receipt";
+import { ParentPreview } from "./parent-preview";
 
 interface MessageBubbleProps {
   message: Message;
@@ -18,12 +21,16 @@ interface MessageBubbleProps {
   showTime: boolean;
   /** Чи це найостанніше власне повідомлення у чаті — потрібне для group "X/Y" indicator-а. */
   isLastOwn: boolean;
+  /** Підсвічувати bubble 2 секунди — після scroll-to-parent клік. */
+  isFlashing: boolean;
   /** chatId передаємо для edit/delete mutations. */
   chatId: string;
   /** Якщо true — рендеримо edit form замість bubble content. */
   isEditing: boolean;
   onStartEdit: () => void;
   onStopEdit: () => void;
+  /** Викликається при кліку на mini-bubble parent-preview — scroll до parent. */
+  onScrollToParent: (parentId: string) => void;
 }
 
 /**
@@ -47,23 +54,31 @@ export function MessageBubble({
   isGrouped,
   showTime,
   isLastOwn,
+  isFlashing,
   chatId,
   isEditing,
   onStartEdit,
   onStopEdit,
+  onScrollToParent,
 }: MessageBubbleProps) {
+  const { setReplyingTo } = useReply();
+
   const isDeleted = message.deletedAt !== null;
   const isPersisted = CUID_LIKE_REGEX.test(message.id);
   const showActions = isOwn && !isDeleted && isPersisted && !isEditing;
   // Picker доступний для всіх (своїх і чужих), якщо не deleted/edit і повідомлення persisted
   const canReact = !isDeleted && !isEditing && isPersisted;
+  // Reply доступний на тих же умовах (для всіх, не лише own)
+  const canReply = !isDeleted && !isEditing && isPersisted;
 
   return (
     <div
+      id={`message-${message.id}`}
       className={cn(
-        "group flex gap-2",
+        "group flex gap-2 rounded-md transition-colors",
         isOwn ? "flex-row-reverse" : "flex-row",
         isGrouped ? "mt-0.5" : "mt-3",
+        isFlashing && "animate-flash",
       )}
     >
       {/* Avatar slot */}
@@ -111,6 +126,13 @@ export function MessageBubble({
           />
         ) : (
           <div className="relative">
+            {message.parent && (
+              <ParentPreview
+                parent={message.parent}
+                isOwn={isOwn}
+                onClick={() => onScrollToParent(message.parent!.id)}
+              />
+            )}
             <div
               className={cn(
                 "rounded-2xl px-3.5 py-2 text-sm break-words whitespace-pre-wrap",
@@ -174,6 +196,32 @@ export function MessageBubble({
           side={isOwn ? "right" : "left"}
           onStartEdit={onStartEdit}
         />
+      )}
+
+      {/* Reply button — для всіх не-deleted persisted (своїх і чужих) */}
+      {canReply && (
+        <button
+          type="button"
+          onClick={() =>
+            setReplyingTo({
+              id: message.id,
+              authorName: message.author.name,
+              contentPreview:
+                message.content.length > 100
+                  ? `${message.content.slice(0, 100)}…`
+                  : message.content,
+              isDeleted: false,
+            })
+          }
+          className={cn(
+            "self-center rounded-full p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100",
+            isOwn ? "order-first" : "order-last",
+          )}
+          aria-label="Відповісти"
+          title="Відповісти"
+        >
+          <Reply className="h-4 w-4" />
+        </button>
       )}
     </div>
   );

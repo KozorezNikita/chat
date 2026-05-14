@@ -41,6 +41,16 @@ export type ReactionGroup = z.infer<typeof reactionGroupSchema>;
  * - editedAt !== null показує "(edited)" в UI.
  * - parentMessageId — для thread reply.
  */
+export const messageParentPreviewSchema = z.object({
+  id: z.string(),
+  authorName: z.string(),
+  /** Перші ~100 символів parent.content. Порожньо якщо deleted. */
+  contentPreview: z.string(),
+  isDeleted: z.boolean(),
+});
+
+export type MessageParentPreview = z.infer<typeof messageParentPreviewSchema>;
+
 export const messageSchema = z.object({
   id: z.string(),
   chatId: z.string(),
@@ -48,6 +58,12 @@ export const messageSchema = z.object({
   content: z.string(),
 
   parentMessageId: z.string().nullable(),
+  /**
+   * Preview-цитата parent повідомлення для UI mini-bubble.
+   * null коли це не reply. null також коли parent з іншого чату або не існує
+   * (захист від cross-chat leak — сервер фільтрує перед serialization).
+   */
+  parent: messageParentPreviewSchema.nullable(),
 
   // Кількість replies на це повідомлення (для UI лічильника "5 replies").
   // Сервер заповнює.

@@ -215,3 +215,22 @@
     opacity: 0.4;
   }
 }
+
+/* Flash animation — підсвічуємо bubble після scroll-to-parent.
+   2 секунди, sunset-кольоровий glow. */
+@keyframes flash {
+  0% {
+    background-color: color-mix(in oklch, var(--primary) 25%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 20%, transparent);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@layer utilities {
+  .animate-flash {
+    animation: flash 2s ease-out forwards;
+  }
+}

@@ -134,6 +134,7 @@ interface SendMessageOptions {
   chatId: string;
   authorId: string;
   content?: string;
+  parentMessageId?: string;
 }
 
 /**
@@ -146,6 +147,7 @@ export async function createMessage(opts: SendMessageOptions) {
       chatId: opts.chatId,
       authorId: opts.authorId,
       content: opts.content ?? "Test message",
+      ...(opts.parentMessageId ? { parentMessageId: opts.parentMessageId } : {}),
     },
     include: {
       author: {

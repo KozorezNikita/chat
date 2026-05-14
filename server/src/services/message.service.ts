@@ -43,14 +43,24 @@ export async function sendMessage(
   authorId: string,
   dto: SendMessageDto,
 ): Promise<SentMessageResponse> {
+  // Reply threading: якщо клієнт передав parentMessageId, валідуємо що
+  // parent існує, у тому ж чаті і не видалений. Це захист від спуфінгу
+  // (cross-chat reply) і UX (reply на видалене не має сенсу).
+  if (dto.parentMessageId) {
+    const parent = await messageRepo.findMessageById(dto.parentMessageId);
+    if (!parent || parent.chatId !== chatId) {
+      throw new BadRequestError("Parent message not found in this chat", "PARENT_NOT_FOUND");
+    }
+    if (parent.deletedAt !== null) {
+      throw new BadRequestError("Cannot reply to deleted message", "PARENT_DELETED");
+    }
+  }
+
   const message = await messageRepo.createMessage({
     chatId,
     authorId,
     content: dto.content,
-    // Поки threading вимкнено — ігноруємо parentMessageId з вхідного DTO.
-    // У Iter 6 — починаємо приймати, з валідацією що parent належить
-    // тому самому chatId і не deleted.
-    parentMessageId: undefined,
+    parentMessageId: dto.parentMessageId,
   });
 
   const messageDto = mapMessageToDto(message as MessageWithAuthor, authorId);

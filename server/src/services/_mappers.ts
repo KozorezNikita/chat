@@ -161,6 +161,13 @@ export interface MessageWithAuthor {
     avatarUrl: string | null;
   };
   reactions?: { emoji: string; userId: string }[];
+  parentMessage?: {
+    id: string;
+    content: string;
+    deletedAt: Date | null;
+    chatId: string;
+    author: { name: string };
+  } | null;
 }
 
 /**
@@ -198,11 +205,39 @@ function groupReactions(
   }));
 }
 
+const PARENT_PREVIEW_MAX_LENGTH = 100;
+
+function buildParentPreview(
+  parent: NonNullable<MessageWithAuthor["parentMessage"]>,
+  currentChatId: string,
+) {
+  // Cross-chat protection — якщо parent з іншого чату, не leakaємо
+  if (parent.chatId !== currentChatId) return null;
+
+  const isDeleted = parent.deletedAt !== null;
+  let preview = "";
+  if (!isDeleted) {
+    preview =
+      parent.content.length > PARENT_PREVIEW_MAX_LENGTH
+        ? `${parent.content.slice(0, PARENT_PREVIEW_MAX_LENGTH)}…`
+        : parent.content;
+  }
+  return {
+    id: parent.id,
+    authorName: parent.author.name,
+    contentPreview: preview,
+    isDeleted,
+  };
+}
+
 export function mapMessageToDto(
   message: MessageWithAuthor,
   currentUserId?: string,
 ): Message {
   const isDeleted = message.deletedAt !== null;
+  const parentPreview = message.parentMessage
+    ? buildParentPreview(message.parentMessage, message.chatId)
+    : null;
 
   return {
     id: message.id,
@@ -215,6 +250,7 @@ export function mapMessageToDto(
     },
     content: isDeleted ? "" : message.content,
     parentMessageId: message.parentMessageId,
+    parent: parentPreview,
     replyCount: 0,
     reactions: groupReactions(message.reactions ?? [], currentUserId),
     editedAt: message.editedAt ? message.editedAt.toISOString() : null,

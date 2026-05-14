@@ -1,4 +1,4 @@
-import type { Message } from "@chat/shared";
+import type { Message, MessageParentPreview } from "@chat/shared";
 
 /**
  * Допоміжні функції для відображення повідомлень.
@@ -80,13 +80,15 @@ export function createOptimisticMessage(
   chatId: string,
   content: string,
   author: { id: string; name: string; username: string | null; avatarUrl: string | null },
+  parentPreview: MessageParentPreview | null = null,
 ): Message {
   return {
     id: clientId, // тимчасово використовуємо clientId як id
     chatId,
     author,
     content,
-    parentMessageId: null,
+    parentMessageId: parentPreview?.id ?? null,
+    parent: parentPreview,
     replyCount: 0,
     reactions: [],
     editedAt: null,
