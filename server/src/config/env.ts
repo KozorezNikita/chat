@@ -39,6 +39,15 @@ const envSchema = z.object({
   EMAIL_FROM: z.string(),
 
   CLIENT_URL: z.string().url(),
+
+  // S3-compatible storage for file uploads (Iter 7).
+  // dev: MinIO у docker-compose. prod: Cloudflare R2.
+  // Усі поля optional — якщо не задано, upload endpoint поверне 503.
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_REGION: z.string().default("auto"),
+  S3_BUCKET: z.string().optional(),
+  S3_ACCESS_KEY: z.string().optional(),
+  S3_SECRET_KEY: z.string().optional(),
 });
 
 /**

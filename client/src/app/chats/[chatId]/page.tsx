@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { useChat } from "@/hooks/use-chats";
@@ -9,6 +9,7 @@ import { ChatHeader } from "@/components/chats/chat-header";
 import { MessageList } from "@/components/chats/messages/message-list";
 import { MessageInput } from "@/components/chats/messages/message-input";
 import { TypingIndicator } from "@/components/chats/messages/typing-indicator";
+import { DropZone } from "@/components/chats/messages/drop-zone";
 import { ReplyProvider } from "@/providers/reply-provider";
 
 interface ChatDetailPageProps {
@@ -27,6 +28,7 @@ export default function ChatDetailPage({ params }: ChatDetailPageProps) {
 
   const { data: meData } = useMe();
   const { data, isLoading, isError, error } = useChat(chatId);
+  const [droppedFile, setDroppedFile] = useState<File | null>(null);
 
   if (isLoading || !meData?.user) {
     return (
@@ -57,9 +59,16 @@ export default function ChatDetailPage({ params }: ChatDetailPageProps) {
   return (
     <ReplyProvider>
       <ChatHeader chat={data.chat} user={meData.user} />
-      <MessageList chatId={chatId} currentUserId={meData.user.id} />
-      <TypingIndicator chatId={chatId} />
-      <MessageInput chatId={chatId} user={meData.user} />
+      <DropZone onFileDropped={setDroppedFile}>
+        <MessageList chatId={chatId} currentUserId={meData.user.id} />
+        <TypingIndicator chatId={chatId} />
+        <MessageInput
+          chatId={chatId}
+          user={meData.user}
+          externalFile={droppedFile}
+          onExternalFileConsumed={() => setDroppedFile(null)}
+        />
+      </DropZone>
     </ReplyProvider>
   );
 }

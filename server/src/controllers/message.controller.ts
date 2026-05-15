@@ -67,3 +67,84 @@ export async function deleteMessage(req: Request, res: Response): Promise<void> 
   req.log.info({ messageId, userId: req.userId }, "Message deleted");
   res.json({ message });
 }
+
+// ============================================
+// SEND WITH ATTACHMENT (Iter 7)
+// ============================================
+
+interface MulterFile {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+}
+
+interface RequestWithFile extends Request {
+  file?: MulterFile;
+}
+
+/**
+ * POST /api/v1/chats/:chatId/messages/upload (multipart/form-data)
+ *
+ * Fields:
+ *   file: File (binary, required)
+ *   clientId: string (UUID, required)
+ *   content: string (optional, "" якщо тільки файл)
+ *   parentMessageId: string (optional)
+ */
+export async function sendMessageWithAttachment(req: Request, res: Response): Promise<void> {
+  const file = (req as RequestWithFile).file;
+  if (!file) {
+    res.status(400).json({
+      error: { code: "FILE_REQUIRED", message: "File is required" },
+    });
+    return;
+  }
+
+  // Multipart body: всі поля — string (multer не парсить JSON для multipart)
+  const body = req.body as {
+    clientId?: string;
+    content?: string;
+    parentMessageId?: string;
+  };
+
+  const clientId = typeof body.clientId === "string" ? body.clientId : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId)) {
+    res.status(400).json({
+      error: { code: "INVALID_CLIENT_ID", message: "clientId must be a UUID" },
+    });
+    return;
+  }
+
+  const content = typeof body.content === "string" ? body.content.trim() : "";
+  const parentMessageId =
+    typeof body.parentMessageId === "string" && body.parentMessageId.length > 0
+      ? body.parentMessageId
+      : undefined;
+
+  const message = await messageService.sendMessageWithAttachment({
+    chatId: req.chatMember.chatId,
+    authorId: req.userId,
+    clientId,
+    content,
+    parentMessageId,
+    file: {
+      buffer: file.buffer,
+      mimetype: file.mimetype,
+      originalname: file.originalname,
+    },
+  });
+
+  req.log.info(
+    {
+      chatId: req.chatMember.chatId,
+      messageId: message.id,
+      clientId,
+      fileName: file.originalname,
+      fileSize: file.size,
+    },
+    "Message with attachment sent",
+  );
+
+  res.status(201).json({ message });
+}

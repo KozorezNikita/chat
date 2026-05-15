@@ -6,6 +6,7 @@ import { Reply } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/utils/chat-utils";
 import { formatMessageTime } from "@/lib/utils/message-utils";
+import { isImageMime } from "@/lib/utils/file-display";
 import { useReply } from "@/providers/reply-provider";
 import { MessageActions } from "./message-actions";
 import { MessageEditForm } from "./message-edit-form";
@@ -13,6 +14,8 @@ import { ReactionPicker } from "./reaction-picker";
 import { ReactionBar } from "./reaction-bar";
 import { ReadReceipt } from "./read-receipt";
 import { ParentPreview } from "./parent-preview";
+import { AttachmentImage } from "./attachment-image";
+import { AttachmentDocument } from "./attachment-document";
 
 interface MessageBubbleProps {
   message: Message;
@@ -133,18 +136,63 @@ export function MessageBubble({
                 onClick={() => onScrollToParent(message.parent!.id)}
               />
             )}
-            <div
-              className={cn(
-                "rounded-2xl px-3.5 py-2 text-sm break-words whitespace-pre-wrap",
-                isDeleted && "italic text-muted-foreground",
-                !isDeleted && isOwn && "bg-sunset text-primary-foreground",
-                !isDeleted && !isOwn && "bg-card/80 text-foreground border border-border",
-                isOwn && isGrouped && "rounded-tr-md",
-                !isOwn && isGrouped && "rounded-tl-md",
-              )}
-            >
-              {isDeleted ? <span>Це повідомлення видалено</span> : message.content}
-            </div>
+            {(() => {
+              const attachment = message.attachment;
+              const hasContent = !isDeleted && message.content.length > 0;
+              const isAttachmentImage = attachment && isImageMime(attachment.mime);
+
+              // CASE 1: image-only без caption — image без bubble background
+              if (!isDeleted && attachment && isAttachmentImage && !hasContent) {
+                return (
+                  <AttachmentImage
+                    attachment={attachment}
+                    caption={null}
+                    className="border border-border"
+                  />
+                );
+              }
+
+              // CASE 2: bubble background + image/doc + caption (якщо є)
+              return (
+                <div
+                  className={cn(
+                    "rounded-2xl text-sm break-words whitespace-pre-wrap",
+                    // Padding adjustment: image attachment всередині → no padding-top
+                    attachment && isAttachmentImage && !isDeleted ? "p-1" : "px-3.5 py-2",
+                    isDeleted && "italic text-muted-foreground",
+                    !isDeleted && isOwn && "bg-sunset text-primary-foreground",
+                    !isDeleted && !isOwn && "bg-card/80 text-foreground border border-border",
+                    isOwn && isGrouped && "rounded-tr-md",
+                    !isOwn && isGrouped && "rounded-tl-md",
+                  )}
+                >
+                  {isDeleted ? (
+                    <span>Це повідомлення видалено</span>
+                  ) : (
+                    <>
+                      {attachment && isAttachmentImage && (
+                        <AttachmentImage
+                          attachment={attachment}
+                          caption={hasContent ? message.content : null}
+                          className="mb-1"
+                        />
+                      )}
+                      {attachment && !isAttachmentImage && (
+                        <AttachmentDocument
+                          attachment={attachment}
+                          isOwn={isOwn}
+                        />
+                      )}
+                      {hasContent && (
+                        <div className={cn(attachment && "mt-1.5 px-2 pb-1")}>
+                          {message.content}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {canReact && (
               <ReactionPicker

@@ -91,6 +91,7 @@ export function createOptimisticMessage(
     parent: parentPreview,
     replyCount: 0,
     reactions: [],
+    attachment: null,
     editedAt: null,
     deletedAt: null,
     createdAt: new Date().toISOString(),

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import {
   createDirectChatSchema,
   createGroupChatSchema,
@@ -17,6 +18,24 @@ import { requireChatMembership } from "../middlewares/chatMembership.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import * as chatController from "../controllers/chat.controller.js";
 import * as messageController from "../controllers/message.controller.js";
+import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "../services/upload.service.js";
+
+/**
+ * Multer instance для file uploads.
+ * memoryStorage — buffer у RAM, ми одразу stream у S3.
+ * fileFilter — mime whitelist + 20 MB limit.
+ */
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE_BYTES },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}`));
+    }
+  },
+});
 
 const router = Router();
 
@@ -123,6 +142,14 @@ router.post(
   validate({ params: chatIdParamSchema, body: sendMessageSchema }),
   asyncHandler(requireChatMembership),
   asyncHandler(messageController.sendMessage),
+);
+
+router.post(
+  "/:chatId/messages/upload",
+  validate({ params: chatIdParamSchema }),
+  asyncHandler(requireChatMembership),
+  upload.single("file"),
+  asyncHandler(messageController.sendMessageWithAttachment),
 );
 
 export { router as chatRouter };

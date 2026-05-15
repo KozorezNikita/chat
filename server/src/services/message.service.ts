@@ -9,6 +9,8 @@ import {
 } from "../socket/broadcast.js";
 import { ForbiddenError, NotFoundError, BadRequestError } from "../utils/HttpError.js";
 import { mapMessageToDto, type MessageWithAuthor } from "./_mappers.js";
+import { uploadFileToS3 } from "./upload.service.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * ============================================
@@ -63,7 +65,7 @@ export async function sendMessage(
     parentMessageId: dto.parentMessageId,
   });
 
-  const messageDto = mapMessageToDto(message as MessageWithAuthor, authorId);
+  const messageDto = await mapMessageToDto(message as MessageWithAuthor, authorId);
 
   // Broadcast усім members chat-room. Передаємо clientId — автор замінить
   // свою optimistic message у кеші на серверний (без дублів).
@@ -116,7 +118,7 @@ export async function editMessage(
     content: dto.content,
   });
 
-  const messageDto = mapMessageToDto(updated as MessageWithAuthor, userId);
+  const messageDto = await mapMessageToDto(updated as MessageWithAuthor, userId);
   broadcastEditedMessage(message.chatId, messageDto);
 
   return messageDto;
@@ -146,11 +148,11 @@ export async function deleteMessage(messageId: string, userId: string): Promise<
 
   // Якщо вже deleted — повертаємо як є (idempotent), broadcast не повторюємо.
   if (message.deletedAt !== null) {
-    return mapMessageToDto(message as MessageWithAuthor, userId);
+    return await mapMessageToDto(message as MessageWithAuthor, userId);
   }
 
   const deleted = await messageRepo.softDeleteMessage(messageId);
-  const messageDto = mapMessageToDto(deleted as MessageWithAuthor, userId);
+  const messageDto = await mapMessageToDto(deleted as MessageWithAuthor, userId);
   broadcastDeletedMessage(message.chatId, messageDto);
 
   return messageDto;
@@ -180,7 +182,92 @@ export async function getMessages(
   });
 
   return {
-    items: items.map((m) => mapMessageToDto(m as MessageWithAuthor, currentUserId)),
+    items: await Promise.all(
+      items.map((m) => mapMessageToDto(m as MessageWithAuthor, currentUserId)),
+    ),
     nextCursor,
+  };
+}
+
+// ============================================
+// SEND WITH ATTACHMENT (Iter 7)
+// ============================================
+
+interface SendWithAttachmentInput {
+  chatId: string;
+  authorId: string;
+  clientId: string;
+  content: string; // може бути "" (caption optional)
+  parentMessageId?: string | undefined;
+  file: {
+    buffer: Buffer;
+    mimetype: string;
+    originalname: string;
+  };
+}
+
+/**
+ * Створює повідомлення з прикріпленим файлом.
+ *
+ * Flow:
+ *  1. Validate parentMessageId (як для text-message)
+ *  2. Create message з порожніми attachment fields
+ *  3. Upload файл у S3 з messageId як path
+ *  4. Update message з attachment fields
+ *  5. Broadcast message:new
+ *
+ * Rollback: якщо upload падає — DELETE message + throw.
+ * Якщо update падає — orphan files у S3 (acceptable; cleanup у Iter 11).
+ */
+export async function sendMessageWithAttachment(
+  input: SendWithAttachmentInput,
+): Promise<SentMessageResponse> {
+  // Reply validation (повторюємо логіку з sendMessage)
+  if (input.parentMessageId) {
+    const parent = await messageRepo.findMessageById(input.parentMessageId);
+    if (!parent || parent.chatId !== input.chatId) {
+      throw new BadRequestError("Parent message not found in this chat", "PARENT_NOT_FOUND");
+    }
+    if (parent.deletedAt !== null) {
+      throw new BadRequestError("Cannot reply to deleted message", "PARENT_DELETED");
+    }
+  }
+
+  // 1: Create message з placeholder content
+  const message = await messageRepo.createMessage({
+    chatId: input.chatId,
+    authorId: input.authorId,
+    content: input.content,
+    parentMessageId: input.parentMessageId,
+  });
+
+  // 2: Upload файл у S3. Якщо падає — rollback message.
+  let uploadResult;
+  try {
+    uploadResult = await uploadFileToS3({
+      messageId: message.id,
+      buffer: input.file.buffer,
+      mimeType: input.file.mimetype,
+      originalName: input.file.originalname,
+    });
+  } catch (err) {
+    logger.error({ err, messageId: message.id }, "Upload failed, rolling back message");
+    await messageRepo.hardDeleteMessage(message.id);
+    throw new BadRequestError(
+      err instanceof Error ? err.message : "Upload failed",
+      "UPLOAD_FAILED",
+    );
+  }
+
+  // 3: Update message з attachment fields
+  const updated = await messageRepo.updateMessageAttachment(message.id, uploadResult);
+
+  // 4: Map + broadcast
+  const messageDto = await mapMessageToDto(updated as MessageWithAuthor, input.authorId);
+  broadcastNewMessage(input.chatId, messageDto, input.clientId);
+
+  return {
+    ...messageDto,
+    clientId: input.clientId,
   };
 }

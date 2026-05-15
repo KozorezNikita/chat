@@ -1,5 +1,7 @@
 import type { PublicUser, MeUser } from "@chat/shared";
 
+import { getSignedDownloadUrl } from "./upload.service.js";
+
 /**
  * Мапери Prisma-моделей у DTO для API-відповідей.
  *
@@ -168,6 +170,14 @@ export interface MessageWithAuthor {
     chatId: string;
     author: { name: string };
   } | null;
+  // Attachment fields — присутні після Iter 7 migration
+  attachmentKey?: string | null;
+  attachmentName?: string | null;
+  attachmentMime?: string | null;
+  attachmentSize?: number | null;
+  attachmentWidth?: number | null;
+  attachmentHeight?: number | null;
+  attachmentThumbKey?: string | null;
 }
 
 /**
@@ -230,14 +240,48 @@ function buildParentPreview(
   };
 }
 
-export function mapMessageToDto(
+async function buildAttachment(
+  message: MessageWithAuthor,
+): Promise<{
+  url: string;
+  thumbUrl: string | null;
+  name: string;
+  mime: string;
+  size: number;
+  width: number | null;
+  height: number | null;
+} | null> {
+  if (!message.attachmentKey) return null;
+
+  const [url, thumbUrl] = await Promise.all([
+    getSignedDownloadUrl(message.attachmentKey),
+    message.attachmentThumbKey
+      ? getSignedDownloadUrl(message.attachmentThumbKey)
+      : Promise.resolve(null),
+  ]);
+
+  return {
+    url,
+    thumbUrl,
+    name: message.attachmentName ?? "file",
+    mime: message.attachmentMime ?? "application/octet-stream",
+    size: message.attachmentSize ?? 0,
+    width: message.attachmentWidth ?? null,
+    height: message.attachmentHeight ?? null,
+  };
+}
+
+export async function mapMessageToDto(
   message: MessageWithAuthor,
   currentUserId?: string,
-): Message {
+): Promise<Message> {
   const isDeleted = message.deletedAt !== null;
   const parentPreview = message.parentMessage
     ? buildParentPreview(message.parentMessage, message.chatId)
     : null;
+
+  // Attachment не показуємо у deleted повідомленнях (UI показує "Видалено").
+  const attachment = isDeleted ? null : await buildAttachment(message);
 
   return {
     id: message.id,
@@ -253,6 +297,7 @@ export function mapMessageToDto(
     parent: parentPreview,
     replyCount: 0,
     reactions: groupReactions(message.reactions ?? [], currentUserId),
+    attachment,
     editedAt: message.editedAt ? message.editedAt.toISOString() : null,
     deletedAt: message.deletedAt ? message.deletedAt.toISOString() : null,
     createdAt: message.createdAt.toISOString(),

@@ -109,6 +109,39 @@ export async function softDeleteMessage(messageId: string) {
   });
 }
 
+export interface AttachmentFields {
+  attachmentKey: string;
+  attachmentName: string;
+  attachmentMime: string;
+  attachmentSize: number;
+  attachmentWidth: number | null;
+  attachmentHeight: number | null;
+  attachmentThumbKey: string | null;
+}
+
+/**
+ * Оновити attachment-поля Message після успішного upload у S3.
+ * Окрема функція бо потік create-message → upload → update_attachment.
+ */
+export async function updateMessageAttachment(
+  messageId: string,
+  fields: AttachmentFields,
+) {
+  return prisma.message.update({
+    where: { id: messageId },
+    data: fields,
+    include: FULL_MESSAGE_INCLUDE,
+  });
+}
+
+/**
+ * Hard delete — для rollback при upload failure.
+ * Не плутати з soft-delete (deletedAt).
+ */
+export async function hardDeleteMessage(messageId: string): Promise<void> {
+  await prisma.message.delete({ where: { id: messageId } });
+}
+
 // ============================================
 // Cursor pagination
 // ============================================

@@ -51,6 +51,24 @@ export const messageParentPreviewSchema = z.object({
 
 export type MessageParentPreview = z.infer<typeof messageParentPreviewSchema>;
 
+export const messageAttachmentSchema = z.object({
+  /** Signed URL з 1-годинним TTL. Клієнт використовує для img src / download. */
+  url: z.string().url(),
+  /** Signed URL для thumbnail (тільки для images). null для документів. */
+  thumbUrl: z.string().url().nullable(),
+  /** Original filename для UI display. */
+  name: z.string(),
+  /** MIME type. UI вирішує image vs document по `mime.startsWith("image/")`. */
+  mime: z.string(),
+  /** Bytes. */
+  size: z.number().int().positive(),
+  /** Для images — pixels. null для документів. */
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
+});
+
+export type MessageAttachment = z.infer<typeof messageAttachmentSchema>;
+
 export const messageSchema = z.object({
   id: z.string(),
   chatId: z.string(),
@@ -70,6 +88,13 @@ export const messageSchema = z.object({
   replyCount: z.number().int().min(0),
 
   reactions: z.array(reactionGroupSchema),
+
+  /**
+   * Attached file (Iter 7). null коли це text-only.
+   * URL-и signed з 1-годинним TTL — сервер ре-генерує при кожному GET.
+   * При deletedAt !== null attachment теж null (не показуємо файл видаленого).
+   */
+  attachment: messageAttachmentSchema.nullable(),
 
   editedAt: z.string().datetime().nullable(),
   deletedAt: z.string().datetime().nullable(),

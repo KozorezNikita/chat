@@ -205,6 +205,17 @@ model Message {
   editedAt  DateTime?
   deletedAt DateTime?
 
+  // Attachment (Iter 7). Inline-fields замість окремої таблиці —
+  // одне повідомлення = одне file max (як Telegram).
+  // Усі поля nullable; якщо attachmentKey null — це plain text message.
+  attachmentKey       String?   // S3 key: messages/{id}/{filename}
+  attachmentName      String?   // original filename для UI display
+  attachmentMime      String?   // image/jpeg, application/pdf, etc.
+  attachmentSize      Int?      // bytes
+  attachmentWidth     Int?      // для image — pixels (UI placeholder)
+  attachmentHeight    Int?
+  attachmentThumbKey  String?   // S3 key для thumbnail (тільки images)
+
   createdAt DateTime @default(now())
 
   reactions Reaction[]
