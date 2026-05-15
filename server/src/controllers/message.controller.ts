@@ -72,17 +72,6 @@ export async function deleteMessage(req: Request, res: Response): Promise<void> 
 // SEND WITH ATTACHMENT (Iter 7)
 // ============================================
 
-interface MulterFile {
-  buffer: Buffer;
-  mimetype: string;
-  originalname: string;
-  size: number;
-}
-
-interface RequestWithFile extends Request {
-  file?: MulterFile;
-}
-
 /**
  * POST /api/v1/chats/:chatId/messages/upload (multipart/form-data)
  *
@@ -91,9 +80,11 @@ interface RequestWithFile extends Request {
  *   clientId: string (UUID, required)
  *   content: string (optional, "" якщо тільки файл)
  *   parentMessageId: string (optional)
+ *
+ * req.file типується через @types/multer (global Express.Multer.File).
  */
 export async function sendMessageWithAttachment(req: Request, res: Response): Promise<void> {
-  const file = (req as RequestWithFile).file;
+  const file = req.file;
   if (!file) {
     res.status(400).json({
       error: { code: "FILE_REQUIRED", message: "File is required" },

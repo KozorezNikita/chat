@@ -30,8 +30,10 @@ export function getS3(): S3Client | null {
   if (!isS3Configured()) return null;
   if (client) return client;
 
+  // exactOptionalPropertyTypes: явне undefined у endpoint ламає тип.
+  // Якщо isS3Configured() true — env.S3_ENDPOINT гарантовано рядок.
   client = new S3Client({
-    endpoint: env.S3_ENDPOINT,
+    endpoint: env.S3_ENDPOINT!,
     region: env.S3_REGION,
     credentials: {
       accessKeyId: env.S3_ACCESS_KEY!,
