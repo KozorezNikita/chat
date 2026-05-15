@@ -158,16 +158,3 @@ export const editMessageSchema = z.object({
 });
 
 export type EditMessageDto = z.infer<typeof editMessageSchema>;
-
-/**
- * Search query для FTS.
- * chatId опційний — глобальний пошук по всіх чатах юзера, або в межах одного.
- */
-export const searchMessagesQuerySchema = z.object({
-  q: z.string().trim().min(1).max(200),
-  chatId: z.string().min(1).optional(),
-  cursor: z.string().min(1).optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-});
-
-export type SearchMessagesQuery = z.infer<typeof searchMessagesQuerySchema>;

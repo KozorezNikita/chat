@@ -14,6 +14,7 @@ import { userRouter } from "./routes/user.routes.js";
 import { messageRouter } from "./routes/message.routes.js";
 import { reactionRouter } from "./routes/reaction.routes.js";
 import { presenceRouter } from "./routes/presence.routes.js";
+import { searchRouter } from "./routes/search.routes.js";
 
 /**
  * Створює і конфігурує Express app — БЕЗ виклику listen.
@@ -67,6 +68,7 @@ export function createApp(): Express {
   app.use("/api/v1/messages", messageRouter);
   app.use("/api/v1/messages/:messageId/reactions", reactionRouter);
   app.use("/api/v1/presence", presenceRouter);
+  app.use("/api/v1/search", searchRouter);
 
   // 404 для усього що не зматчилось.
   app.use(notFoundHandler);
