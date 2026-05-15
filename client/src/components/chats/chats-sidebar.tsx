@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Search, Loader2, MessageSquareText } from "lucide-react";
 import type { Chat, MeUser } from "@chat/shared";
 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useChats } from "@/hooks/use-chats";
 import { getChatTitle } from "@/lib/utils/chat-utils";
@@ -36,7 +38,14 @@ export function ChatsSidebar({ user }: ChatsSidebarProps) {
       <div className="border-b border-border p-3">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">Чати</h2>
-          <NewChatButton />
+          <div className="flex items-center gap-1">
+            <Button asChild variant="ghost" size="icon" title="Пошук по повідомленнях">
+              <Link href="/chats/search" aria-label="Пошук по повідомленнях">
+                <MessageSquareText className="h-4 w-4" />
+              </Link>
+            </Button>
+            <NewChatButton />
+          </div>
         </div>
 
         <div className="relative">

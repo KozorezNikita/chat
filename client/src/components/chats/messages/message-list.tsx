@@ -140,6 +140,27 @@ export function MessageList({ chatId, currentUserId }: MessageListProps) {
     setUnreadCount(0);
   }, [isNearBottom, messages, markAsRead]);
 
+  // Scroll до повідомлення з URL hash (#message-xyz) — для navigation із search-сторінки
+  // або deep-links. Спрацьовує один раз коли messages завантажились.
+  const hashScrolledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const hash = window.location.hash;
+    if (!hash.startsWith("#message-")) return;
+    if (hashScrolledRef.current === hash) return;
+
+    const messageId = hash.slice("#message-".length);
+    hashScrolledRef.current = hash;
+
+    // Чекаємо tick щоб DOM встиг ren render messages
+    setTimeout(() => {
+      handleScrollToParent(messageId);
+      // Очищаємо hash щоб refresh не повторив scroll
+      const url = window.location.pathname + window.location.search;
+      window.history.replaceState(null, "", url);
+    }, 100);
+  }, [messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
