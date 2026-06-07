@@ -215,6 +215,8 @@ model Message {
   attachmentWidth     Int?      // для image — pixels (UI placeholder)
   attachmentHeight    Int?
   attachmentThumbKey  String?   // S3 key для thumbnail (тільки images)
+  attachmentDuration  Int?      // Тривалість у секундах для audio/video (Iter 10).
+                                // null для image/document.
 
   createdAt DateTime @default(now())
 

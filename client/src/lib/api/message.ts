@@ -72,6 +72,8 @@ export function uploadMessageWithFile(
     clientId: string;
     content?: string;
     parentMessageId?: string;
+    /** Тривалість audio у секундах (Iter 10). Опційно — тільки для voice messages. */
+    duration?: number;
   },
   onProgress?: (percent: number) => void,
 ): Promise<{ message: SentMessageResponse }> {
@@ -80,6 +82,7 @@ export function uploadMessageWithFile(
   formData.append("clientId", input.clientId);
   if (input.content) formData.append("content", input.content);
   if (input.parentMessageId) formData.append("parentMessageId", input.parentMessageId);
+  if (input.duration !== undefined) formData.append("duration", String(input.duration));
 
   return api({
     method: "POST",

@@ -199,6 +199,11 @@ interface SendWithAttachmentInput {
   clientId: string;
   content: string; // може бути "" (caption optional)
   parentMessageId?: string | undefined;
+  /**
+   * Тривалість audio у секундах (Iter 10). Опційно — тільки для audio attachments.
+   * Клієнт обчислює через MediaRecorder і передає у multipart field.
+   */
+  duration?: number | undefined;
   file: {
     buffer: Buffer;
     mimetype: string;
@@ -249,6 +254,7 @@ export async function sendMessageWithAttachment(
       buffer: input.file.buffer,
       mimeType: input.file.mimetype,
       originalName: input.file.originalname,
+      duration: input.duration ?? null,
     });
   } catch (err) {
     logger.error({ err, messageId: message.id }, "Upload failed, rolling back message");

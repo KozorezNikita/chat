@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 
 import { useMe } from "@/hooks/use-auth";
 import { ChatsSidebar } from "@/components/chats/chats-sidebar";
+import { SidebarProvider } from "@/providers/sidebar-provider";
 
 /**
  * Layout для всіх /chats сторінок.
@@ -40,21 +41,23 @@ export default function ChatsLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="relative flex h-svh overflow-hidden">
-      {/* Декоративний фон */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-30 dark:opacity-50"
-        style={{
-          backgroundImage: `
-            radial-gradient(ellipse 60% 50% at 20% 10%, oklch(0.55 0.22 350 / 0.4), transparent 60%),
-            radial-gradient(ellipse 50% 40% at 85% 80%, oklch(0.7 0.16 55 / 0.3), transparent 60%)
-          `,
-        }}
-      />
+    <SidebarProvider>
+      <div className="relative flex h-svh overflow-hidden">
+        {/* Декоративний фон */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 opacity-30 dark:opacity-50"
+          style={{
+            backgroundImage: `
+              radial-gradient(ellipse 60% 50% at 20% 10%, oklch(0.55 0.22 350 / 0.4), transparent 60%),
+              radial-gradient(ellipse 50% 40% at 85% 80%, oklch(0.7 0.16 55 / 0.3), transparent 60%)
+            `,
+          }}
+        />
 
-      <ChatsSidebar user={data.user} />
-      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
-    </div>
+        <ChatsSidebar user={data.user} />
+        <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+      </div>
+    </SidebarProvider>
   );
 }

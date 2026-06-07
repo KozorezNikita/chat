@@ -1,14 +1,16 @@
 "use client";
 
-import { Users } from "lucide-react";
+import { Users, Menu } from "lucide-react";
 import type { Chat, MeUser } from "@chat/shared";
 
+import { Button } from "@/components/ui/button";
 import {
   getChatTitle,
   getChatAvatarUrl,
   getInitials,
 } from "@/lib/utils/chat-utils";
 import { usePresence, useOnlineCount } from "@/hooks/use-presence";
+import { useSidebar } from "@/providers/sidebar-provider";
 import { OnlineDot } from "@/components/chats/sidebar/online-dot";
 import { LastSeen } from "@/components/ui/last-seen";
 
@@ -56,8 +58,11 @@ export function ChatHeader({ chat, user }: ChatHeaderProps) {
   }
 
   return (
-    <header className="flex shrink-0 items-center gap-3 border-b border-border bg-background/60 px-6 py-3 backdrop-blur-sm">
-      <div className="relative">
+    <header className="flex shrink-0 items-center gap-3 border-b border-border bg-background/60 px-3 py-3 backdrop-blur-sm md:px-6">
+      {/* Hamburger — only on mobile */}
+      <MenuButton />
+
+      <div className="relative shrink-0">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={avatarUrl} alt={title} className="h-10 w-10 rounded-full object-cover" />
@@ -76,5 +81,24 @@ export function ChatHeader({ chat, user }: ChatHeaderProps) {
         )}
       </div>
     </header>
+  );
+}
+
+/**
+ * Hamburger button — відкриває sidebar drawer на mobile. Hidden on md+.
+ * Окремий компонент щоб `useSidebar()` не змушував всю header rerender-итись.
+ */
+function MenuButton() {
+  const { open } = useSidebar();
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={open}
+      className="md:hidden"
+      aria-label="Відкрити меню"
+    >
+      <Menu className="h-5 w-5" />
+    </Button>
   );
 }

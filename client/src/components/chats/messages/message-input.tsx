@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button";
 import { useSendMessage } from "@/hooks/use-messages";
 import { useUploadMessage } from "@/hooks/use-upload-message";
 import { useTyping } from "@/hooks/use-typing";
+import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { useReply } from "@/providers/reply-provider";
 import { createOptimisticMessage } from "@/lib/utils/message-utils";
 import { getErrorMessage } from "@/lib/api/errors";
 import { validateFile, ALLOWED_MIME_TYPES } from "@/lib/utils/file-validation";
 import { ReplyBanner } from "./reply-banner";
 import { AttachmentPreview } from "./attachment-preview";
+import { VoiceRecorderUI, VoiceRecorderTrigger } from "./voice-recorder-ui";
 
 interface MessageInputProps {
   chatId: string;
@@ -26,16 +28,21 @@ interface MessageInputProps {
 }
 
 /**
- * Текстове поле + кнопка надсилання + paperclip для file upload.
+ * Текстове поле + кнопки для file upload + voice recording.
  *
  * Modes:
  *  - text-only: textarea → useSendMessage (existing flow)
- *  - with attachment: textarea = caption, send → useUploadMessage (multipart)
+ *  - with attachment: textarea = caption, send → useUploadMessage
+ *  - voice (Iter 10): запис через MediaRecorder, send → useUploadMessage з audio/webm
+ *
+ * Layout під час voice recording — full-width VoiceRecorderUI заміняє увесь
+ * row (textarea + buttons), щоб юзер не плутав controls. Reply banner і
+ * attachment preview також ховаються коли запис активний.
  *
  * Keyboard:
  *  - Enter → send (text або з attachment)
  *  - Shift+Enter → newline
- *  - Escape → скасувати reply / прибрати attachment
+ *  - Escape → скасувати reply / прибрати attachment / cancel запис
  */
 export function MessageInput({
   chatId,
@@ -51,7 +58,15 @@ export function MessageInput({
   const sendMessage = useSendMessage(chatId);
   const upload = useUploadMessage(chatId);
   const typing = useTyping(chatId);
+  const voice = useVoiceRecorder({ maxDuration: 120 });
   const { replyingTo, setReplyingTo } = useReply();
+
+  // Показуємо помилки запису як toast
+  useEffect(() => {
+    if (voice.error) {
+      toast.error(voice.error.message);
+    }
+  }, [voice.error]);
 
   // Sync external file (з drop-zone) у локальний state
   useEffect(() => {
@@ -76,6 +91,7 @@ export function MessageInput({
   }, [replyingTo]);
 
   const isPending = sendMessage.isPending || upload.isUploading;
+  const isVoiceMode = voice.state !== "idle";
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -95,7 +111,6 @@ export function MessageInput({
 
   function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    // Завжди clear input value щоб можна було вибрати той самий файл знову
     e.target.value = "";
     if (!file) return;
 
@@ -108,6 +123,37 @@ export function MessageInput({
     textareaRef.current?.focus();
   }
 
+  async function handleSendVoice() {
+    if (!voice.blob || !voice.mimeType || isPending) return;
+
+    const blob = voice.blob;
+    const mime = voice.mimeType;
+    const duration = voice.duration;
+    const clientId = crypto.randomUUID();
+    const parentMessageId = replyingTo?.id;
+
+    // Файл-extension з mime — для UI display ("voice-{timestamp}.webm")
+    // Сам mime передається у File constructor → backend бачить правильний.
+    // ";codecs=opus" суфікс прибираємо для File.type → backend whitelist приймає.
+    const baseType = mime.split(";")[0] ?? mime;
+    const ext = baseType.includes("webm") ? "webm" : baseType.includes("mp4") ? "m4a" : "ogg";
+    const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: baseType });
+
+    voice.cancel(); // reset recorder state ще ДО запиту — UI moves back to idle
+    setReplyingTo(null);
+
+    try {
+      await upload.upload({
+        file,
+        clientId,
+        duration,
+        ...(parentMessageId ? { parentMessageId } : {}),
+      });
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }
+
   async function handleSend() {
     if (isPending) return;
 
@@ -117,7 +163,6 @@ export function MessageInput({
 
     // Branch: з attachment vs text-only
     if (selectedFile) {
-      // Файл — caption (content) опційний
       const file = selectedFile;
       setContent("");
       setSelectedFile(null);
@@ -134,14 +179,12 @@ export function MessageInput({
         });
       } catch (err) {
         toast.error(getErrorMessage(err));
-        // Restore state бо send failed — юзер може спробувати ще раз
         setSelectedFile(file);
         setContent(trimmed);
       }
       return;
     }
 
-    // Text-only flow (existing)
     if (!trimmed) return;
 
     const parentPreview = replyingTo;
@@ -193,6 +236,25 @@ export function MessageInput({
 
   const canSend = (content.trim().length > 0 || selectedFile !== null) && !isPending;
 
+  // Voice mode: full-width VoiceRecorderUI замість default row
+  if (isVoiceMode) {
+    return (
+      <div className="border-t border-border bg-background/60 backdrop-blur-sm">
+        <div className="mx-auto max-w-3xl">
+          <VoiceRecorderUI
+            state={voice.state}
+            duration={voice.duration}
+            blob={voice.blob}
+            isSending={upload.isUploading}
+            onStop={voice.stop}
+            onCancel={voice.cancel}
+            onSend={handleSendVoice}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="border-t border-border bg-background/60 backdrop-blur-sm">
       <ReplyBanner />
@@ -213,7 +275,7 @@ export function MessageInput({
             accept={Array.from(ALLOWED_MIME_TYPES).join(",")}
             onChange={handleFilePick}
           />
-          {/* Paperclip button */}
+          {/* Paperclip */}
           <Button
             type="button"
             variant="ghost"
@@ -225,6 +287,12 @@ export function MessageInput({
           >
             <Paperclip className="h-4 w-4" />
           </Button>
+
+          {/* Voice recorder trigger 🎤 */}
+          <VoiceRecorderTrigger
+            onStart={voice.start}
+            disabled={isPending || selectedFile !== null}
+          />
 
           <textarea
             ref={textareaRef}

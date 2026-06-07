@@ -117,6 +117,7 @@ export interface AttachmentFields {
   attachmentWidth: number | null;
   attachmentHeight: number | null;
   attachmentThumbKey: string | null;
+  attachmentDuration: number | null;
 }
 
 /**

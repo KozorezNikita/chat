@@ -28,6 +28,8 @@ interface UploadInput {
   clientId: string;
   content?: string;
   parentMessageId?: string;
+  /** Тривалість audio у секундах (Iter 10). Опційно — тільки для voice messages. */
+  duration?: number;
 }
 
 export function useUploadMessage(chatId: string) {

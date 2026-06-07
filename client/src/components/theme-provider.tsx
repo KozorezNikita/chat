@@ -6,8 +6,9 @@ import type { ComponentProps } from "react";
 /**
  * Обгортка над next-themes:
  * - attribute="class" — кладе .dark на <html>
- * - defaultTheme="dark" — Sunset gradient за замовчуванням темний
- * - enableSystem — поважаємо налаштування OS
+ * - defaultTheme="system" — поважаємо налаштування OS на першому візиті,
+ *   юзер може override через ThemeToggle, вибір збережеться у localStorage
+ * - enableSystem — дозволяє "system" як один з варіантів
  * - disableTransitionOnChange — без миготіння при перемиканні
  */
 export function ThemeProvider({
@@ -17,7 +18,7 @@ export function ThemeProvider({
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="dark"
+      defaultTheme="system"
       enableSystem
       disableTransitionOnChange
       {...props}

@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useMe, useLogout, useLogoutAll } from "@/hooks/use-auth";
 import { getErrorMessage } from "@/lib/api/errors";
 

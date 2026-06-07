@@ -178,6 +178,8 @@ export interface MessageWithAuthor {
   attachmentWidth?: number | null;
   attachmentHeight?: number | null;
   attachmentThumbKey?: string | null;
+  // Iter 10: voice messages — тривалість у секундах
+  attachmentDuration?: number | null;
 }
 
 /**
@@ -250,6 +252,7 @@ async function buildAttachment(
   size: number;
   width: number | null;
   height: number | null;
+  duration: number | null;
 } | null> {
   if (!message.attachmentKey) return null;
 
@@ -268,6 +271,7 @@ async function buildAttachment(
     size: message.attachmentSize ?? 0,
     width: message.attachmentWidth ?? null,
     height: message.attachmentHeight ?? null,
+    duration: message.attachmentDuration ?? null,
   };
 }
 

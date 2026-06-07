@@ -6,7 +6,7 @@ import { Reply } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/utils/chat-utils";
 import { formatMessageTime } from "@/lib/utils/message-utils";
-import { isImageMime } from "@/lib/utils/file-display";
+import { isImageMime, isAudioMime } from "@/lib/utils/file-display";
 import { useReply } from "@/providers/reply-provider";
 import { MessageActions } from "./message-actions";
 import { MessageEditForm } from "./message-edit-form";
@@ -16,6 +16,7 @@ import { ReadReceipt } from "./read-receipt";
 import { ParentPreview } from "./parent-preview";
 import { AttachmentImage } from "./attachment-image";
 import { AttachmentDocument } from "./attachment-document";
+import { AttachmentAudio } from "./attachment-audio";
 
 interface MessageBubbleProps {
   message: Message;
@@ -140,6 +141,7 @@ export function MessageBubble({
               const attachment = message.attachment;
               const hasContent = !isDeleted && message.content.length > 0;
               const isAttachmentImage = attachment && isImageMime(attachment.mime);
+              const isAttachmentAudio = attachment && isAudioMime(attachment.mime);
 
               // CASE 1: image-only без caption — image без bubble background
               if (!isDeleted && attachment && isAttachmentImage && !hasContent) {
@@ -152,7 +154,7 @@ export function MessageBubble({
                 );
               }
 
-              // CASE 2: bubble background + image/doc + caption (якщо є)
+              // CASE 2: bubble background + image/doc/audio + caption (якщо є)
               return (
                 <div
                   className={cn(
@@ -177,7 +179,10 @@ export function MessageBubble({
                           className="mb-1"
                         />
                       )}
-                      {attachment && !isAttachmentImage && (
+                      {attachment && isAttachmentAudio && (
+                        <AttachmentAudio attachment={attachment} isOwn={isOwn} />
+                      )}
+                      {attachment && !isAttachmentImage && !isAttachmentAudio && (
                         <AttachmentDocument
                           attachment={attachment}
                           isOwn={isOwn}

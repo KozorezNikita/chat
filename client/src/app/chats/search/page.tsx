@@ -2,9 +2,11 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Loader2, Search as SearchIcon, X } from "lucide-react";
+import { Loader2, Search as SearchIcon, X, Menu } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { useSearchMessages } from "@/hooks/use-search";
+import { useSidebar } from "@/providers/sidebar-provider";
 import { SearchResultItem } from "@/components/search/search-result-item";
 
 /**
@@ -35,32 +37,46 @@ function SearchPageInner() {
     return () => clearTimeout(handle);
   }, [query, router, pathname, params]);
 
+  const { open: openSidebar } = useSidebar();
   const { data, isFetching, error } = useSearchMessages(query);
 
   return (
     <div className="flex h-full flex-col">
       {/* Header з input */}
-      <div className="border-b border-border bg-background/60 px-4 py-3 backdrop-blur-sm">
-        <div className="relative mx-auto max-w-3xl">
-          <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Пошук по повідомленнях..."
-            autoFocus
-            className="w-full rounded-md border border-input bg-background py-2 pr-10 pl-9 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Очистити"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+      <div className="border-b border-border bg-background/60 px-3 py-3 backdrop-blur-sm md:px-4">
+        <div className="mx-auto flex max-w-3xl items-center gap-2">
+          {/* Hamburger — тільки на mobile */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={openSidebar}
+            className="shrink-0 md:hidden"
+            aria-label="Відкрити меню"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          <div className="relative flex-1">
+            <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Пошук по повідомленнях..."
+              autoFocus
+              className="w-full rounded-md border border-input bg-background py-2 pr-10 pl-9 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Очистити"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

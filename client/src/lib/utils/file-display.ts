@@ -13,3 +13,20 @@ export function formatFileSize(bytes: number): string {
 export function isImageMime(mime: string): boolean {
   return mime.startsWith("image/");
 }
+
+/**
+ * Чи це audio mime-type — для voice messages у Iter 10.
+ */
+export function isAudioMime(mime: string): boolean {
+  return mime.startsWith("audio/");
+}
+
+/**
+ * Тривалість у "M:SS" форматі. 90 → "1:30", 5 → "0:05".
+ */
+export function formatDuration(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const secs = safeSeconds % 60;
+  return `${minutes}:${secs.toString().padStart(2, "0")}`;
+}

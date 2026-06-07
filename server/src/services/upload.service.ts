@@ -40,6 +40,13 @@ export const ALLOWED_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  // Audio (Iter 10) — voice messages.
+  // webm/opus — Chrome/Firefox/Edge default; mp4 — Safari fallback.
+  // mpeg/ogg додаємо для completeness, але клієнт зазвичай шле webm або mp4.
+  "audio/webm",
+  "audio/mp4",
+  "audio/mpeg",
+  "audio/ogg",
 ]);
 
 const IMAGE_MIME_TYPES = new Set([
@@ -87,6 +94,7 @@ export interface UploadResult {
   attachmentWidth: number | null;
   attachmentHeight: number | null;
   attachmentThumbKey: string | null;
+  attachmentDuration: number | null;
 }
 
 /**
@@ -102,6 +110,12 @@ export async function uploadFileToS3(opts: {
   buffer: Buffer;
   mimeType: string;
   originalName: string;
+  /**
+   * Тривалість у секундах для audio attachments (Iter 10).
+   * Клієнт обчислює через MediaRecorder і передає у multipart.
+   * null/undefined для image/document.
+   */
+  duration?: number | null;
 }): Promise<UploadResult> {
   const s3 = getS3();
   if (!s3) {
@@ -175,6 +189,7 @@ export async function uploadFileToS3(opts: {
     attachmentWidth: width,
     attachmentHeight: height,
     attachmentThumbKey: thumbKey,
+    attachmentDuration: opts.duration ?? null,
   };
 }
 

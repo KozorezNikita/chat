@@ -80,6 +80,7 @@ export async function deleteMessage(req: Request, res: Response): Promise<void> 
  *   clientId: string (UUID, required)
  *   content: string (optional, "" якщо тільки файл)
  *   parentMessageId: string (optional)
+ *   duration: string (optional, integer seconds) — тільки для audio (Iter 10)
  *
  * req.file типується через @types/multer (global Express.Multer.File).
  */
@@ -97,6 +98,7 @@ export async function sendMessageWithAttachment(req: Request, res: Response): Pr
     clientId?: string;
     content?: string;
     parentMessageId?: string;
+    duration?: string;
   };
 
   const clientId = typeof body.clientId === "string" ? body.clientId : "";
@@ -113,12 +115,23 @@ export async function sendMessageWithAttachment(req: Request, res: Response): Pr
       ? body.parentMessageId
       : undefined;
 
+  // Duration — тільки для audio. Парсимо як positive integer, max 120s (2 хв).
+  // Невалідне duration → ігноруємо (null у БД), а не 400 — backward-compatible.
+  let duration: number | undefined;
+  if (typeof body.duration === "string" && body.duration.length > 0) {
+    const parsed = parseInt(body.duration, 10);
+    if (Number.isFinite(parsed) && parsed > 0 && parsed <= 120) {
+      duration = parsed;
+    }
+  }
+
   const message = await messageService.sendMessageWithAttachment({
     chatId: req.chatMember.chatId,
     authorId: req.userId,
     clientId,
     content,
     parentMessageId,
+    duration,
     file: {
       buffer: file.buffer,
       mimetype: file.mimetype,

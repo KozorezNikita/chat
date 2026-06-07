@@ -29,7 +29,10 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE_BYTES },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
+    // MediaRecorder надсилає mime з codec суфіксом ("audio/webm;codecs=opus").
+    // Нормалізуємо до базового перед перевіркою whitelist.
+    const baseMime = file.mimetype.split(";")[0]?.trim() ?? file.mimetype;
+    if (ALLOWED_MIME_TYPES.has(file.mimetype) || ALLOWED_MIME_TYPES.has(baseMime)) {
       cb(null, true);
     } else {
       cb(new Error(`Unsupported file type: ${file.mimetype}`));

@@ -205,4 +205,100 @@ describeIfS3("File uploads", () => {
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("PARENT_NOT_FOUND");
   });
+
+  // ============================================
+  // Audio attachments (Iter 10 — voice messages)
+  // ============================================
+
+  it("uploads audio/webm with duration → 201 + attachment.duration у response та БД", async () => {
+    const { user: alice, password } = await createVerifiedUser();
+    const { user: bob } = await createVerifiedUser();
+    const chat = await createDirectChat({ userIdA: alice.id, userIdB: bob.id });
+    const cookies = await loginAndGetCookies(app, alice.email, password);
+
+    // Fake webm — multer перевіряє тільки mime, sharp скіпиться (audio not image),
+    // R2/MinIO зберігає як binary. Реальний MediaRecorder не потрібен для unit-test.
+    const fakeWebmBuffer = Buffer.from("fake webm audio content for integration test");
+
+    const res = await request(app)
+      .post(`/api/v1/chats/${chat.id}/messages/upload`)
+      .set("Cookie", cookies)
+      .attach("file", fakeWebmBuffer, {
+        filename: "voice-1234567890.webm",
+        contentType: "audio/webm",
+      })
+      .field("clientId", crypto.randomUUID())
+      .field("duration", "15");
+
+    expect(res.status).toBe(201);
+    expect(res.body.message.attachment).toEqual(
+      expect.objectContaining({
+        name: "voice-1234567890.webm",
+        mime: "audio/webm",
+        size: fakeWebmBuffer.length,
+        width: null,
+        height: null,
+        duration: 15,
+      }),
+    );
+    expect(res.body.message.attachment.thumbUrl).toBeNull();
+
+    // Перевіряємо БД — attachmentDuration справді persisted
+    const msg = await prisma.message.findUnique({
+      where: { id: res.body.message.id },
+    });
+    expect(msg?.attachmentDuration).toBe(15);
+    expect(msg?.attachmentThumbKey).toBeNull();
+  });
+
+  it("uploads audio with codec суфіксом mime (audio/webm;codecs=opus) → 201", async () => {
+    // MediaRecorder у Chrome/Firefox продукує blob з повним mime ("audio/webm;codecs=opus").
+    // Multer fileFilter має нормалізувати до базового "audio/webm" перед whitelist check.
+    const { user: alice, password } = await createVerifiedUser();
+    const { user: bob } = await createVerifiedUser();
+    const chat = await createDirectChat({ userIdA: alice.id, userIdB: bob.id });
+    const cookies = await loginAndGetCookies(app, alice.email, password);
+
+    const fakeWebmBuffer = Buffer.from("fake opus-encoded audio");
+
+    const res = await request(app)
+      .post(`/api/v1/chats/${chat.id}/messages/upload`)
+      .set("Cookie", cookies)
+      .attach("file", fakeWebmBuffer, {
+        filename: "voice.webm",
+        contentType: "audio/webm;codecs=opus",
+      })
+      .field("clientId", crypto.randomUUID())
+      .field("duration", "8");
+
+    expect(res.status).toBe(201);
+    // mime у response — те що multer передав далі (з суфіксом); це OK,
+    // клієнт-сайдовий isAudioMime() перевіряє через startsWith("audio/").
+    expect(res.body.message.attachment.mime).toMatch(/^audio\/webm/);
+    expect(res.body.message.attachment.duration).toBe(8);
+  });
+
+  it("uploads audio без duration → 201 + attachment.duration === null", async () => {
+    // Duration опційний; якщо клієнт не передав або передав невалідне значення,
+    // backend silently зберігає null (backward-compatible з image/document uploads).
+    const { user: alice, password } = await createVerifiedUser();
+    const { user: bob } = await createVerifiedUser();
+    const chat = await createDirectChat({ userIdA: alice.id, userIdB: bob.id });
+    const cookies = await loginAndGetCookies(app, alice.email, password);
+
+    const fakeWebmBuffer = Buffer.from("fake audio without duration");
+
+    const res = await request(app)
+      .post(`/api/v1/chats/${chat.id}/messages/upload`)
+      .set("Cookie", cookies)
+      .attach("file", fakeWebmBuffer, {
+        filename: "voice.webm",
+        contentType: "audio/webm",
+      })
+      .field("clientId", crypto.randomUUID());
+    // duration field не передаємо
+
+    expect(res.status).toBe(201);
+    expect(res.body.message.attachment.duration).toBeNull();
+  });
 });

@@ -58,13 +58,19 @@ export const messageAttachmentSchema = z.object({
   thumbUrl: z.string().url().nullable(),
   /** Original filename для UI display. */
   name: z.string(),
-  /** MIME type. UI вирішує image vs document по `mime.startsWith("image/")`. */
+  /** MIME type. UI вирішує image vs document vs audio по prefix. */
   mime: z.string(),
   /** Bytes. */
   size: z.number().int().positive(),
-  /** Для images — pixels. null для документів. */
+  /** Для images — pixels. null для документів/аудіо. */
   width: z.number().int().positive().nullable(),
   height: z.number().int().positive().nullable(),
+  /**
+   * Тривалість у секундах для audio/video (Iter 10).
+   * null для image/document.
+   * Клієнт обчислює при запису через `MediaRecorder` і передає у multipart.
+   */
+  duration: z.number().int().positive().nullable(),
 });
 
 export type MessageAttachment = z.infer<typeof messageAttachmentSchema>;
