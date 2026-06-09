@@ -241,41 +241,49 @@ export function MessageBubble({
         )}
       </div>
 
-      {/* Actions (hover only) */}
-      {showActions && (
-        <MessageActions
-          chatId={chatId}
-          messageId={message.id}
-          side={isOwn ? "right" : "left"}
-          onStartEdit={onStartEdit}
-        />
+      {/* Actions (hover only) — spacer зберігає місце для власних повідомлень */}
+      {isOwn && !isEditing && (
+        showActions ? (
+          <MessageActions
+            chatId={chatId}
+            messageId={message.id}
+            side="right"
+            onStartEdit={onStartEdit}
+          />
+        ) : (
+          <div className="order-first self-center invisible p-1.5" aria-hidden="true">
+            <div className="h-4 w-4" />
+          </div>
+        )
       )}
 
-      {/* Reply button — для всіх не-deleted persisted (своїх і чужих) */}
-      {canReply && (
-        <button
-          type="button"
-          onClick={() =>
-            setReplyingTo({
-              id: message.id,
-              authorName: message.author.name,
-              contentPreview:
-                message.content.length > 100
-                  ? `${message.content.slice(0, 100)}…`
-                  : message.content,
-              isDeleted: false,
-            })
-          }
-          className={cn(
-            "self-center rounded-full p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100",
-            isOwn ? "order-first" : "order-last",
-          )}
-          aria-label="Відповісти"
-          title="Відповісти"
-        >
-          <Reply className="h-4 w-4" />
-        </button>
-      )}
+      {/* Reply button — завжди в DOM, invisible коли недоступний, щоб зберегти layout */}
+      <button
+        type="button"
+        onClick={canReply ? () =>
+          setReplyingTo({
+            id: message.id,
+            authorName: message.author.name,
+            contentPreview:
+              message.content.length > 100
+                ? `${message.content.slice(0, 100)}…`
+                : message.content,
+            isDeleted: false,
+          }) : undefined
+        }
+        className={cn(
+          "self-center rounded-full p-1.5 text-muted-foreground opacity-0 transition-opacity",
+          canReply
+            ? "hover:bg-muted hover:text-foreground group-hover:opacity-100"
+            : "invisible pointer-events-none",
+          isOwn ? "order-first" : "order-last",
+        )}
+        aria-label="Відповісти"
+        title="Відповісти"
+        tabIndex={canReply ? 0 : -1}
+      >
+        <Reply className="h-4 w-4" />
+      </button>
     </div>
   );
 }
