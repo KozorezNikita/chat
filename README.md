@@ -13,9 +13,9 @@
      4. Dark mode 
      Поклади їх у docs/ і встав: ![alt](docs/screenshot-1.png) -->
 
-![Chat list](docs/chat-list.png)
-![Voice messages & attachments](docs/messages.png)
-![Full-text search](docs/search.png)
+![Chat list](docs/chats-sidebar.png)
+![Voice messages & attachments](docs/voice and picture messages.png)
+![Full-text search](docs/text search and dark theme.png)
 
 ---
 
