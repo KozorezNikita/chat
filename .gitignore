@@ -34,3 +34,6 @@ server/src/generated/
 # Prisma — зберігаємо schema, але не client
 server/prisma/migrations/migration_lock.toml
 !server/prisma/migrations/migration_lock.toml
+
+chat_backup.dump
+DEPLOY.md
