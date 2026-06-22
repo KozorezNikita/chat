@@ -86,10 +86,10 @@ export default function HomePage() {
       </header>
 
       <main className="mx-auto flex max-w-4xl flex-col items-center px-6 py-20 text-center">
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur-sm">
+        {/*<div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur-sm">
           <Sparkles className="h-3.5 w-3.5 text-accent" />
           <span>Iteration 1 · Auth ready</span>
-        </div>
+        </div>*/}
 
         <h1 className="mb-6 text-5xl font-bold tracking-tight sm:text-6xl">
           Real-time chat,
