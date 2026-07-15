@@ -161,8 +161,12 @@ interface ListMessagesOptions {
  * встановлюємо nextCursor = id останнього КЛІЄНТСЬКОГО запису.
  *
  * cursor === id_попереднього_сторінки → шукаємо старіші за нього (id < cursor).
- * Чому id, а не createdAt: cuid V2 монотонно зростає, можна сортувати по id.
- * Це швидше (один індекс), без ризику колізії на однакових createdAt.
+ * Чому id, а не createdAt: Prisma-дефолтний cuid() (v1) має timestamp-префікс
+ * і лексикографічно зростає в часі, тож сортування за id дає хронологічний
+ * порядок. Це швидше (один індекс), без ризику колізії на однакових createdAt.
+ * УВАГА: не мігрувати на cuid2 — він навмисно НЕ sortable, це зламало б
+ * порядок повідомлень. Для зміни генератора id спершу перевести пагінацію
+ * на (createdAt, id).
  */
 export async function listMessagesPaged(opts: ListMessagesOptions) {
   const where: { chatId: string; id?: { lt: string } } = { chatId: opts.chatId };

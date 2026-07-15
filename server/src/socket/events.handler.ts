@@ -1,6 +1,3 @@
-import { parse as parseCookie } from "cookie";
-
-import { verifyAccessToken } from "../utils/tokens.js";
 import * as typingService from "../services/typing.service.js";
 import type { AppSocket } from "./connection.handler.js";
 import { socketLogger } from "./logger.js";
@@ -10,11 +7,12 @@ import { socketLogger } from "./logger.js";
  * Client → Server event handlers
  * ============================================
  *
- * Per-emit auth (узгоджено в Iter 3 — варіант Б): кожен handler через
- * withAuth wrapper перевіряє accessToken з handshake cookies.
- *
- * Якщо токен expired → emit "auth:expired" клієнту, не виконуємо handler.
- * Клієнт ловить це → намагається REST refresh → reconnect socket.
+ * Auth: НЕ ре-валідуємо per-emit. Раніше тут була перевірка проти
+ * handshake-cookie — але це знімок на момент connect, він не оновлюється,
+ * тож на живому з'єднанні токен у знімку "протухав" і typing замовкав
+ * назавжди навіть для валідної сесії. Тепер термін життя з'єднання
+ * обмежується server-side disconnect-ом на exp токена (див.
+ * connection.handler). Поки socket живий — auth дійсний за побудовою.
  */
 
 const TYPING_THROTTLE_MS = 1000;
@@ -23,29 +21,12 @@ interface SocketWithTypingState extends AppSocket {
   data: AppSocket["data"] & { lastTypingAt?: number };
 }
 
-async function isAuthValid(socket: AppSocket): Promise<boolean> {
-  try {
-    const cookies = parseCookie(socket.handshake.headers.cookie ?? "");
-    const accessToken = cookies.accessToken;
-    if (!accessToken) return false;
-    await verifyAccessToken(accessToken);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Реєструє listeners на client emits для одного socket.
  * Викликається з connection.handler-а при кожному connect.
  */
 export function setupEventHandlers(socket: AppSocket): void {
   socket.on("typing:start", async (payload) => {
-    if (!(await isAuthValid(socket))) {
-      socket.emit("auth:expired");
-      return;
-    }
-
     // Throttle: max 1 emit/sec per socket
     const now = Date.now();
     const typedSocket = socket as SocketWithTypingState;
@@ -63,11 +44,6 @@ export function setupEventHandlers(socket: AppSocket): void {
   });
 
   socket.on("typing:stop", async (payload) => {
-    if (!(await isAuthValid(socket))) {
-      socket.emit("auth:expired");
-      return;
-    }
-
     if (typeof payload?.chatId !== "string" || !payload.chatId) return;
 
     await typingService.broadcastTypingStop(socket.data.userId, payload.chatId);

@@ -2,8 +2,10 @@ import { Readable } from "node:stream";
 import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import sharp from "sharp";
+import { fileTypeFromBuffer } from "file-type";
 
 import { getS3, getBucket } from "../db/s3.js";
+import { HttpError } from "../utils/HttpError.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -58,6 +60,54 @@ const IMAGE_MIME_TYPES = new Set([
 
 const THUMBNAIL_MAX_DIMENSION = 400;
 const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour
+
+/**
+ * Перевірка реального типу файлу за сигнатурою (magic bytes), а не за
+ * заявленим клієнтом Content-Type. Без цього можна залити, скажімо, HTML
+ * під виглядом image/jpeg (пункт 5 рев'ю).
+ *
+ * Політика:
+ *  - file-type РОЗПІЗНАВ тип і він суперечить заявленому → відхиляємо (415).
+ *  - file-type НЕ розпізнав (повернув undefined) → пропускаємо на довірі
+ *    whitelist. Це навмисно: text/plain та деякі формати не мають сигнатури,
+ *    і жорстке блокування відсікало б легітимні файли.
+ *
+ * docx/xlsx/zip — усі zip-контейнери, тож file-type бачить їх як
+ * application/zip. Тому для заявлених office/zip-типів приймаємо будь-який
+ * detected із zip-сімейства.
+ */
+const ZIP_FAMILY_MIMES = new Set([
+  "application/zip",
+  "application/x-zip-compressed",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/msword",
+  "application/vnd.ms-excel",
+]);
+
+async function assertContentMatchesSignature(buffer: Buffer, claimedMime: string): Promise<void> {
+  const detected = await fileTypeFromBuffer(buffer);
+  if (!detected) return; // не змогли визначити — довіряємо whitelist
+
+  const claimBase = claimedMime.split(";")[0]?.trim() ?? claimedMime;
+
+  // Office-документи та zip детектяться як application/zip — приймаємо сімейство.
+  if (ZIP_FAMILY_MIMES.has(claimBase) && detected.mime === "application/zip") {
+    return;
+  }
+
+  if (detected.mime !== claimBase) {
+    logger.warn(
+      { claimedMime: claimBase, detectedMime: detected.mime },
+      "Upload rejected: content signature does not match declared type",
+    );
+    throw new HttpError(
+      415,
+      "CONTENT_TYPE_MISMATCH",
+      "File content does not match its declared type",
+    );
+  }
+}
 
 /**
  * Slugify filename для S3 key.
@@ -123,11 +173,17 @@ export async function uploadFileToS3(opts: {
   }
 
   if (!ALLOWED_MIME_TYPES.has(opts.mimeType)) {
-    throw new Error(`Unsupported mime type: ${opts.mimeType}`);
+    // Defensive: Multer fileFilter зазвичай відсіює це раніше. Але якщо
+    // сервіс викликано в обхід роуту — віддаємо той самий 415, не 500.
+    throw new HttpError(415, "UNSUPPORTED_FILE_TYPE", `Unsupported mime type: ${opts.mimeType}`);
   }
   if (opts.buffer.length > MAX_FILE_SIZE_BYTES) {
-    throw new Error(`File too large: ${opts.buffer.length} bytes`);
+    const mb = Math.round(MAX_FILE_SIZE_BYTES / (1024 * 1024));
+    throw new HttpError(413, "FILE_TOO_LARGE", `File exceeds the ${mb} MB limit`);
   }
+
+  // Звіряємо реальну сигнатуру з заявленим типом (захист від підміни Content-Type).
+  await assertContentMatchesSignature(opts.buffer, opts.mimeType);
 
   const bucket = getBucket();
   const slug = slugifyFilename(opts.originalName);

@@ -189,7 +189,10 @@ export interface MessageWithAuthor {
  * без leaking оригінального тексту). Клієнт перевіряє `deletedAt !== null`
  * щоб показати "Це повідомлення видалено".
  *
- * reactions і replyCount поки що пусті — заповнимо в Ітераціях 5 і 6.
+ * reactions заповнюються реально. replyCount — поки що завжди 0: тредів у
+ * UI ще нема, підрахунок реплаїв не реалізовано. Поле лишається в DTO як
+ * зарезервоване під майбутню фічу тредів; НЕ покладатись на нього на клієнті,
+ * доки не буде додано реальний _count по parentMessageId.
  */
 /**
  * reactedByMe рахуємо тут — на основі currentUserId з context-у запиту.
@@ -299,7 +302,7 @@ export async function mapMessageToDto(
     content: isDeleted ? "" : message.content,
     parentMessageId: message.parentMessageId,
     parent: parentPreview,
-    replyCount: 0,
+    replyCount: 0, // stub — див. коментар вище; підрахунок ще не реалізовано
     reactions: groupReactions(message.reactions ?? [], currentUserId),
     attachment,
     editedAt: message.editedAt ? message.editedAt.toISOString() : null,

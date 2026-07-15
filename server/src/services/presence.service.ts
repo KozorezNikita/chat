@@ -52,6 +52,27 @@ export async function trackConnect(userId: string, socketId: string): Promise<vo
 }
 
 /**
+ * Викликається періодично, поки socket живий, щоб TTL ключа online:userId
+ * не протух на довгоживучому з'єднанні. Без цього ключ зникав би через
+ * ONLINE_TTL_SECONDS навіть для підключеного юзера (bug: presence "offline"
+ * після години онлайну на одному сокеті без реконектів).
+ *
+ * Ідемпотентна: якщо ключа вже нема (наприклад, після disconnect race) —
+ * expire на неіснуючий ключ просто no-op, нічого не створює.
+ */
+export async function refreshPresence(userId: string): Promise<void> {
+  const redis = await getRedis();
+  if (!redis) return;
+
+  try {
+    // XX: оновлюємо TTL лише якщо ключ ще існує — не воскрешаємо стертий Set.
+    await redis.expire(onlineKey(userId), ONLINE_TTL_SECONDS, "XX");
+  } catch (err) {
+    logger.warn({ err, userId }, "presence refresh failed");
+  }
+}
+
+/**
  * Викликається при socket disconnect. Прибирає socketId з Set.
  * Якщо це був останній socket — оновлює User.lastSeenAt у БД.
  */

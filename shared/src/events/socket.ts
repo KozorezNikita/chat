@@ -181,4 +181,9 @@ export interface InterServerEvents {
 
 export interface SocketData {
   userId: string;
+  /**
+   * Unix time (сек) протухання access-токена, знятий на handshake.
+   * Сервер планує disconnect на цей момент — reconnect принесе свіжий cookie.
+   */
+  tokenExp?: number;
 }

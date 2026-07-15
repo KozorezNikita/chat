@@ -3,7 +3,9 @@
 // ============================================
 //
 // Конвенції:
-// - Усі ID на cuid() — sortable, не передбачувані, без monotonic-leak.
+// - Усі ID на cuid() — це cuid v1: timestamp-префікс дає time-ordered id
+//   (лексикографічно зростають у часі), не передбачувані, без monotonic-leak.
+//   NB: не мігрувати на cuid2 — він навмисно НЕ sortable (зламає cursor-пагінацію).
 // - Усі timestamps — DateTime з default now() / updatedAt.
 // - Soft delete — окремим полем deletedAt, без global filter
 //   (Prisma не має повної підтримки global filters, тож фільтруємо в repo).
@@ -241,7 +243,7 @@ model Message {
 
   // Ключовий індекс для cursor pagination:
   // "дай мені останні N повідомлень чату X старіших за курсор Y".
-  // Сортування за id DESC (cuid v2 є time-ordered).
+  // Сортування за id DESC (cuid v1 — time-ordered завдяки timestamp-префіксу).
   @@index([chatId, id(sort: Desc)])
   @@index([chatId, deletedAt])
   @@index([authorId])

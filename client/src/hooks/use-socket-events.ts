@@ -8,6 +8,7 @@ import type { Chat, ChatMember, Message, MessagePage } from "@chat/shared";
 import { useSocket } from "@/providers/socket-provider";
 import { useMe } from "@/hooks/use-auth";
 import { groupReactions } from "@/lib/utils/reactions";
+import { apiClient } from "@/lib/api/client";
 
 /**
  * ============================================
@@ -242,8 +243,15 @@ export function useSocketEvents() {
     // ============================================
 
     function handleAuthExpired() {
-      // Тригеримо AUTH_FAILED_EVENT → query-client.tsx стирає me state.
-      window.dispatchEvent(new Event("auth-failed"));
+      // Сервер розірвав з'єднання, бо access-токен, з яким конектились,
+      // протух. Це НЕ означає, що сесія мертва — refresh-токен, найпевніше,
+      // ще живий. Тому не викидаємо на логін, а оновлюємо cookie напряму:
+      //  - успіх → socket auto-reconnect піде вже зі свіжим cookie;
+      //  - провал (мертвий refresh) → apiClient сам емітить AUTH_FAILED_EVENT
+      //    у своєму catch, тож логаут станеться автоматично.
+      void apiClient.post("/auth/refresh").catch(() => {
+        // Навмисно порожньо: обробку провалу робить інтерцептор у client.ts.
+      });
     }
 
     // ============================================

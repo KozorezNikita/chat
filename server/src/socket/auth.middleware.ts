@@ -67,6 +67,11 @@ export async function socketAuthMiddleware(
     }
 
     socket.data.userId = user.id;
+    // Знімаємо exp токена — connection.handler запланує disconnect на цей момент.
+    // Handshake-cookie заморожений, тож єдиний надійний сигнал протухання — сам exp.
+    if (typeof payload.exp === "number") {
+      socket.data.tokenExp = payload.exp;
+    }
     next();
   } catch (err) {
     socketLogger.error({ err, socketId: socket.id }, "Socket auth: unexpected error");

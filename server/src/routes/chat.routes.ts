@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Request, Response, NextFunction } from "express";
 import multer from "multer";
 import {
   createDirectChatSchema,
@@ -16,6 +17,7 @@ import { validate } from "../middlewares/validate.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { requireChatMembership } from "../middlewares/chatMembership.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { HttpError, BadRequestError } from "../utils/HttpError.js";
 import * as chatController from "../controllers/chat.controller.js";
 import * as messageController from "../controllers/message.controller.js";
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "../services/upload.service.js";
@@ -39,6 +41,43 @@ const upload = multer({
     }
   },
 });
+
+/**
+ * Обгортка над upload.single, що конвертує помилки Multer у наші HttpError.
+ * Без неї MulterError (напр. LIMIT_FILE_SIZE) і generic Error з fileFilter
+ * пролітали повз HttpError-гілку errorHandler-а і ставали 500
+ * "Internal server error" — юзер за файл на 21 МБ бачив би саме це.
+ *
+ * Мапінг:
+ *  - LIMIT_FILE_SIZE        → 413 Payload Too Large
+ *  - інші MulterError       → 400 Bad Request (unexpected field, забагато файлів)
+ *  - Error з fileFilter     → 415 Unsupported Media Type
+ */
+function uploadSingle(field: string) {
+  const handler = upload.single(field);
+  return (req: Request, res: Response, next: NextFunction) => {
+    handler(req, res, (err: unknown) => {
+      if (!err) return next();
+
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          const mb = Math.round(MAX_FILE_SIZE_BYTES / (1024 * 1024));
+          return next(
+            new HttpError(413, "FILE_TOO_LARGE", `File exceeds the ${mb} MB limit`),
+          );
+        }
+        return next(new BadRequestError(err.message, "UPLOAD_ERROR"));
+      }
+
+      if (err instanceof Error) {
+        // Єдине джерело generic Error тут — fileFilter (unsupported mime).
+        return next(new HttpError(415, "UNSUPPORTED_FILE_TYPE", err.message));
+      }
+
+      return next(err);
+    });
+  };
+}
 
 const router = Router();
 
@@ -151,7 +190,7 @@ router.post(
   "/:chatId/messages/upload",
   validate({ params: chatIdParamSchema }),
   asyncHandler(requireChatMembership),
-  upload.single("file"),
+  uploadSingle("file"),
   asyncHandler(messageController.sendMessageWithAttachment),
 );
 

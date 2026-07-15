@@ -359,13 +359,9 @@ export async function resetPassword(rawToken: string, newPassword: string): Prom
  * Викликається з `/api/v1/auth/me` (auth-middleware гарантує що userId є).
  */
 export async function getMe(userId: string): Promise<MeUser> {
-  const user = await userRepo.findActiveUserById(userId);
-  if (!user) {
-    // Юзера видалили поки в нього був валідний access token — рідко але
-    // буває. Сесію треба зарубати.
-    throw new UnauthorizedError("User no longer exists", "USER_NOT_FOUND");
-  }
-  // findActiveUserById повертає select без createdAt — додаємо що треба.
+  // Один запит: беремо одразу всі поля для MeUser (включно з createdAt).
+  // Раніше було два запити на того самого юзера — findActiveUserById, а
+  // потім окремий findUnique лише заради createdAt.
   const full = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -378,7 +374,11 @@ export async function getMe(userId: string): Promise<MeUser> {
       createdAt: true,
     },
   });
-  if (!full) throw new UnauthorizedError("User no longer exists", "USER_NOT_FOUND");
+  if (!full) {
+    // Юзера видалили поки в нього був валідний access token — рідко але
+    // буває. Сесію треба зарубати.
+    throw new UnauthorizedError("User no longer exists", "USER_NOT_FOUND");
+  }
   return mapUserToMe(full);
 }
 
