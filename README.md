@@ -4,6 +4,10 @@
 
 **Live demo:** [chat-xi-eosin-43.vercel.app](https://chat-xi-eosin-43.vercel.app/)
 
+Demo (without registration)
+Акаунт 1 / Account 1: nikita@gmail.com / nikita123456
+Акаунт 2 / Account 2: dima@gmail.com / dima1234
+
 > 🇬🇧 English below · 🇺🇦 Українська нижче
 
 <!-- TODO: додай 3-4 скріншоти. Рекомендую:
